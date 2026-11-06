@@ -1,0 +1,116 @@
+Integrantes do Grupo:
+Guilherme Barbosa B. Campos 
+Cauã Henrique Nascimento 
+Gabriel Henrique Ferreira 
+Rodrigo Avelar Santos
+Briefing de Projeto — Separador e Contador Automático de Parafusos com 
+Dashboard de Estoque
+1. Visão Geral
+Sistema automatizado para classificação, contagem e controle de estoque de 
+parafusos por espessura/bitola (M1, M2, M3, M4, etc.), utilizando separação 
+mecânica por tamanho, pesagem para identificação e contagem, e um dashboard 
+digital que recebe e exibe os dados em tempo real.
+2. Objetivo do Projeto
+Eliminar a contagem e classificação manual de parafusos, reduzindo erro humano 
+e tempo de operação, ao mesmo tempo em que se gera um controle de estoque 
+automatizado e rastreável por tipo/bitola de parafuso.
+3. Escopo
+Incluso:
+• Funil de alimentação com furações calibradas por tamanho (o parafuso 
+passa pelo furo correspondente ao seu tamanho, promovendo a separação 
+física)
+• Sensor de passagem em cada furação/saída, responsável por contar cada 
+parafuso que atravessa aquele tamanho específico
+• Balança de precisão para pesagem, usada para identificar a bitola (M1, 
+M2, M3, M4...) do parafuso que passou por aquele tamanho
+• Contagem automática cruzando tamanho (furação) + bitola (peso)
+• Envio dos dados para um sistema/dashboard de estoque
+• Dashboard com visualização de quantidades por tamanho e bitola
+Fora do escopo:
+• Separação/identificação por tipo de cabeça (Philips, Allen, fenda, 
+sextavado, etc.) — não faz parte deste projeto
+• Integração com sistemas de compra/reposição automática (ERP)
+
+• Empacotamento automático dos parafusos separados
+4. Como o Sistema Deve Funcionar (Fluxo)
+1. Parafusos são despejados no funil de entrada, que possui furações de 
+tamanhos diferentes (do menor para o maior, ou em trilhas separadas).
+2. Cada parafuso encontra o furo compatível com seu tamanho e passa por 
+ali, promovendo a separação física por tamanho.
+3. Ao atravessar a furação, um sensor de passagem (óptico, indutivo ou 
+similar) detecta o parafuso e incrementa a contagem daquele tamanho.
+4. Na sequência, o parafuso cai sobre a balança.
+5. O sistema identifica a bitola (M1, M2, M3, M4...) comparando o peso lido 
+com uma tabela de referência calibrada.
+6. O sistema associa tamanho (da furação) + bitola (do peso), formando a 
+classificação completa da peça.
+7. Os dados são enviados ao dashboard via rede local (Wi-Fi/Ethernet) ou 
+protocolo serial.
+8. O dashboard exibe o estoque atualizado em tempo real, por tamanho e 
+bitola, com histórico de entradas.
+Observação: o tipo de cabeça do parafuso (Philips, Allen, fenda, etc.) não é 
+identificado nem separado neste sistema — apenas tamanho e bitola.
+5. Componentes do Sistema
+5.1 Estrutura Mecânica
+• Funil de alimentação com furações calibradas por tamanho (ângulo 
+adequado para escoamento sem entupimento, furos crescentes ou trilhas 
+paralelas por tamanho)
+• Calha(s) de direcionamento de cada furação até a balança
+5.2 Sensoriamento e Pesagem
+• Sensor de passagem por furação (óptico/IR, indutivo ou micro switch) —
+um por tamanho, responsável pela contagem daquele tamanho específico
+• Célula de carga (load cell) + módulo amplificador (ex: HX711) para 
+pesagem e identificação da bitola
+
+• Importante garantir que apenas um parafuso por vez chegue à balança, 
+para não somar pesos e gerar erro de leitura (pode exigir um pequeno 
+buffer/singulador antes da balança)
+5.3 Eletrônica/Controle
+• Microcontrolador (ex: ESP32 — já contempla Wi-Fi para comunicação com 
+o dashboard, ou Arduino + módulo de rede)
+• Firmware responsável por: 
+o Leitura dos sensores de passagem (contagem por tamanho/furação)
+o Leitura da célula de carga (identificação da bitola por faixa de peso)
+o Cruzamento dos dados: tamanho + bitola = classificação completa
+o Contagem incremental por combinação tamanho/bitola
+o Envio dos dados (HTTP/MQTT/Serial)
+5.4 Software / Dashboard
+• Backend para receber e armazenar os dados (banco de dados simples: 
+SQLite//PostgreSQL)
+• Dashboard web ou app exibindo: 
+o Estoque atual por bitola
+o Histórico de contagens (por dia/lote)
+o Alertas de estoque baixo (opcional)
+6. Ponto Crítico do Projeto: Identificação por Peso
+A viabilidade do sistema depende de haver diferença de peso perceptível e 
+consistente entre bitolas próximas (ex: M2 vs M3). Pontos a validar:
+• Faixa de tolerância de peso por bitola (parafusos do mesmo tipo podem 
+variar por comprimento/material)
+• Necessidade de calibração inicial com amostras reais de cada bitola usada
+• Se o comprimento variar muito dentro da mesma bitola, pode ser 
+necessário combinar peso + separação mecânica prévia (o funil já ajuda a 
+restringir por faixa antes de pesar)
+7. Requisitos Não Funcionais
+• Precisão mínima aceitável na contagem (ex: >98%)
+• Tempo de resposta por peça (parafusos/segundo processados)
+
+• Robustez mecânica (evitar entupimentos no funil)
+• Comunicação estável entre hardware e dashboard
+8. Riscos e Desafios
+• Entupimento no funil/separador com parafusos de geometria irregular
+• Ruído na leitura da célula de carga (vibração mecânica do sistema)
+• Sobreposição de peças na balança causando erro de contagem
+• Variação de peso entre parafusos "iguais" de fabricantes diferentes
+9. Fases Sugeridas do Projeto
+Fase Descrição
+1 Prototipagem do mecanismo de separação por tamanho (funil + trilho)
+2 Testes de pesagem e definição das faixas de peso por bitola
+3 Desenvolvimento do firmware (leitura + lógica de identificação + contagem)
+4 Comunicação hardware → backend
+5 Desenvolvimento do dashboard
+6 Testes integrados e calibração final
+10. Próximos Passos Imediatos
+1. Definir quais bitolas serão suportadas inicialmente (M1 a M4? mais?)
+2. Levantar peso médio real de cada bitola (pesar amostras)
+3. Escolher microcontrolador e célula de carga
+4. Validar o desenho mecânico do separador de tamanho

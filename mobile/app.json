@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "Paraflow",
+    "slug": "paraflow",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#070b16",
+    "ios": { "supportsTablet": false, "bundleIdentifier": "br.paraflow.app" },
+    "android": { "package": "br.paraflow.app" }
+  }
+}
