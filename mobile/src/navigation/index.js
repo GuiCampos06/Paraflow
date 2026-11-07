@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
 import CadastroScreen from '../screens/CadastroScreen';
 import DashboardScreen from '../screens/DashboardScreen';
+import PedidoScreen from '../screens/PedidoScreen';
 import { colors } from '../theme/colors';
 
 const Stack = createNativeStackNavigator();
@@ -27,7 +28,10 @@ export default function Navigation() {
     <NavigationContainer theme={tema}>
       <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
         {usuario ? (
-          <Stack.Screen name="Dashboard" component={DashboardScreen} />
+          <>
+            <Stack.Screen name="Dashboard" component={DashboardScreen} />
+            <Stack.Screen name="Pedido" component={PedidoScreen} />
+          </>
         ) : (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />

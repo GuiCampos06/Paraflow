@@ -81,9 +81,31 @@ export const statusSchema = z.object({
   ligado: z.boolean().optional(),
 });
 
-export const comandoSchema = z.object({
+export const comandoSchema = z
+  .object({
+    deviceId: z.string().min(1).max(40).optional(),
+    ligado: z.boolean().optional(),
+    tara: z.literal(true).optional(), // zera a balança
+  })
+  .refine((c) => c.ligado !== undefined || c.tara, { message: 'Envie "ligado" ou "tara".', path: ['ligado'] });
+
+export const telemetriaSchema = z.object({
+  peso: z.number().min(-1000).max(100000),
+  estavel: z.boolean().optional(),
+  rssi: z.number().optional(),
+});
+
+export const pedidoCriarSchema = z.object({
+  bitola: z.string().regex(/^M\d{1,2}$/, 'Bitola inválida.'),
+  comprimentoMm: z.number().int().positive('Comprimento inválido.'),
+  quantidade: z.number().int('Use um número inteiro.').min(1, 'Peça ao menos 1.').max(100000, 'Quantidade muito alta.'),
   deviceId: z.string().min(1).max(40).optional(),
-  ligado: z.boolean(),
+});
+
+export const pedidosQuerySchema = z.object({
+  status: z.enum(['aberto', 'retirado', 'cancelado']).optional(),
+  pagina: z.coerce.number().int().min(1).default(1),
+  limite: z.coerce.number().int().min(1).max(100).default(20),
 });
 
 export const eventosQuerySchema = z.object({

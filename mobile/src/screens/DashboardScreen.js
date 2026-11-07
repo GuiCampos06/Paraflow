@@ -10,19 +10,23 @@ import { colors } from '../theme/colors';
 
 const fmt = (n) => n.toLocaleString('pt-BR');
 
-export default function DashboardScreen() {
+export default function DashboardScreen({ navigation }) {
   const { usuario, sair } = useAuth();
   const [estoque, setEstoque] = useState(null);
   const [disp, setDisp] = useState(null);
   const [tempoReal, setTempoReal] = useState(false);
   const [erro, setErro] = useState('');
   const [atualizando, setAtualizando] = useState(false);
+  const [est, setEst] = useState(null); // estatísticas
+  const [peso, setPeso] = useState(null); // balança ao vivo
+  const [, tick] = useState(0);
 
   const carregar = useCallback(async () => {
     try {
-      const [e, d] = await Promise.all([api('/estoque'), api('/dispositivo')]);
+      const [e, d, s] = await Promise.all([api('/estoque'), api('/dispositivo'), api('/estoque/estatisticas')]);
       setEstoque(e);
       setDisp(d.dispositivos[0] ?? null);
+      setEst(s);
       setErro('');
     } catch (e) {
       setErro(e.message);
@@ -34,9 +38,14 @@ export default function DashboardScreen() {
     const socket = io(API_URL, { auth: { token: lerTokenMemoria() }, transports: ['websocket'] });
     socket.on('connect', () => setTempoReal(true));
     socket.on('disconnect', () => setTempoReal(false));
-    socket.on('estoque:atualizado', setEstoque);
+    socket.on('estoque:atualizado', (e) => {
+      setEstoque(e);
+      api('/estoque/estatisticas').then(setEst).catch(() => {});
+    });
+    socket.on('dispositivo:telemetria', (t) => setPeso({ ...t, recebidoEm: Date.now() }));
+    const relogio = setInterval(() => tick((n) => n + 1), 1000); // atualiza o "ao vivo"
     socket.on('dispositivo:status', (d) => setDisp((a) => (!a || a.deviceId === d.deviceId ? d : a)));
-    return () => socket.disconnect();
+    return () => { clearInterval(relogio); socket.disconnect(); };
   }, [carregar]);
 
   const puxar = async () => {
@@ -123,6 +132,24 @@ export default function DashboardScreen() {
           )}
         </View>
 
+        <View style={styles.painel}>
+          <Text style={styles.painelTitulo}>Resumo</Text>
+          {estoque?.menorEstoque ? (
+            <Text style={styles.suave}>Menos estoque: <Text style={styles.destaque}>{estoque.menorEstoque.bitola} × {estoque.menorEstoque.comprimentoMm} mm</Text> ({fmt(estoque.menorEstoque.quantidade)} peças)</Text>
+          ) : (
+            <Text style={styles.suave}>Menos estoque: aparece quando a 1ª peça for contada.</Text>
+          )}
+          <Text style={styles.suave}>Contadas hoje: <Text style={styles.destaque}>{fmt(est?.hoje ?? 0)}</Text></Text>
+          <Text style={styles.suave}>Média por dia: <Text style={styles.destaque}>{(est?.mediaPorDia ?? 0).toLocaleString('pt-BR')}</Text> · últimos 7 dias: <Text style={styles.destaque}>{(est?.mediaUltimos7Dias ?? 0).toLocaleString('pt-BR')}</Text></Text>
+          <Text style={styles.suave}>Rejeitadas: {(est?.taxaRejeicao ?? 0).toLocaleString('pt-BR')}% · pedidos abertos: {est?.pedidosAbertos ?? 0}</Text>
+          {peso && Date.now() - peso.recebidoEm <= 5000 ? (
+            <Text style={styles.suave}>Balança agora: <Text style={styles.destaque}>{peso.peso.toFixed(2)} g</Text> {peso.estavel ? '(estável)' : '(medindo...)'}</Text>
+          ) : (
+            <Text style={styles.suave}>Balança: sem leitura ao vivo.</Text>
+          )}
+        </View>
+
+        <Botao titulo="Pedido de parafusos" aoPressionar={() => navigation.navigate('Pedido')} />
         <Botao titulo="Sair" variante="contorno" aoPressionar={sair} />
       </ScrollView>
     </View>
@@ -150,4 +177,5 @@ const styles = StyleSheet.create({
   totalGeral: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', borderTopWidth: 1, borderTopColor: colors.borda, paddingTop: 14 },
   totalNumero: { color: colors.texto, fontSize: 24, fontWeight: '700' },
   suave: { color: colors.suave },
+  destaque: { color: colors.ciano, fontWeight: '700' },
 });

@@ -6,7 +6,16 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#070b16",
-    "ios": { "supportsTablet": false, "bundleIdentifier": "br.paraflow.app" },
-    "android": { "package": "br.paraflow.app" }
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "br.paraflow.app"
+    },
+    "android": {
+      "package": "br.paraflow.app"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-status-bar"
+    ]
   }
 }

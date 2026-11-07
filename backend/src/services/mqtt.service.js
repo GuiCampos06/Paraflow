@@ -1,7 +1,7 @@
 import mqtt from 'mqtt';
 import { env } from '../config/env.js';
 import { bus } from '../utils/bus.js';
-import { eventoSchema, statusSchema } from '../utils/schemas.js';
+import { eventoSchema, statusSchema, telemetriaSchema } from '../utils/schemas.js';
 import { registrarEvento } from './estoque.service.js';
 import { Dispositivo } from '../models/Dispositivo.js';
 
@@ -9,7 +9,9 @@ import { Dispositivo } from '../models/Dispositivo.js';
  * Tópicos (prefixo configurável em MQTT_TOPIC_PREFIX; <id> = deviceId gerado pelo servidor):
  *   <p>/<id>/evento  ESP32 → backend   {"comp":10,"bitola":"M3","peso":1.07,"valido":true,"token":"..."}
  *   <p>/<id>/status  ESP32 → backend   {"online":true,"ligado":true,"token":"..."}  (retain + LWT)
- *   <p>/<id>/cmd     backend → ESP32   {"ligado":false}                             (retain)
+ *   <p>/<id>/telemetria ESP32 → backend {"peso":1.07,"estavel":true,"rssi":-60,"token":"..."}  (1x/s, não guardada)
+ *   <p>/<id>/cmd     backend → ESP32   {"ligado":false} (retain)  ou  {"tara":true} (sem retain)
+ *   <p>/<id>/pedido  backend → ESP32   {"id":"...","comp":10,"bitola":"M3","qtd":20}   (sem retain)
  *   <p>/<id>/alerta  backend → ESP32   {"estoqueBaixo":true}                        (retain)
  *
  * Toda mensagem do ESP32 carrega o token da máquina. Sem deviceId + token válidos o
@@ -37,10 +39,18 @@ export function iniciarMqtt() {
   client.on('connect', () => {
     console.log(`📡 MQTT conectado em ${env.MQTT_URL} (prefixo "${P}")`);
     client.subscribe([`${P}/+/evento`, `${P}/+/status`], { qos: 1 });
+    client.subscribe(`${P}/+/telemetria`, { qos: 0 });
   });
   client.on('reconnect', () => console.log('📡 MQTT reconectando...'));
   client.on('error', (e) => console.error('📡 MQTT erro:', e.message));
   client.on('message', aoReceber);
+
+  // pedido criado: avisa a máquina (ela posiciona o carrossel na gaveta certa)
+  bus.on('pedido:criado', ({ deviceId, pedido }) => {
+    publicar(`${P}/${deviceId}/pedido`, {
+      id: pedido.id, comp: pedido.comprimentoMm, bitola: pedido.bitola, qtd: pedido.quantidade,
+    }, { qos: 1, retain: false });
+  });
 
   // quando o estoque de uma organização muda, avisa SÓ as máquinas dela
   bus.on('estoque:atualizado', async ({ organizacaoId, estoque }) => {
@@ -77,6 +87,15 @@ async function aoReceber(topico, buffer) {
       const r = eventoSchema.safeParse(json); // o schema descarta o campo "token"
       if (!r.success) return console.warn(`📡 Evento inválido de ${deviceId}:`, r.error.issues[0]?.message);
       await registrarEvento({ dispositivo, ...r.data });
+    } else if (tipo === 'telemetria') {
+      const r = telemetriaSchema.safeParse(json);
+      if (r.success) {
+        // só repassa ao vivo (WebSocket); não grava no banco
+        bus.emit('dispositivo:telemetria', {
+          organizacaoId: String(dispositivo.organizacaoId),
+          telemetria: { deviceId, ...r.data, em: new Date().toISOString() },
+        });
+      }
     } else if (tipo === 'status') {
       const r = statusSchema.safeParse(json);
       if (r.success) await atualizarStatus(dispositivo, r.data);
@@ -93,7 +112,8 @@ function publicar(topico, objeto, opcoes = { qos: 1, retain: true }) {
   });
 }
 
-export const publicarComando = (deviceId, ligado) => publicar(`${P}/${deviceId}/cmd`, { ligado });
+export const publicarComando = (deviceId, corpo, retain = true) =>
+  publicar(`${P}/${deviceId}/cmd`, corpo, { qos: 1, retain });
 
 export function encerrarMqtt() {
   return new Promise((resolve) => (client ? client.end(false, {}, resolve) : resolve()));

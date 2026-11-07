@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import Historico from './pages/Historico.jsx';
 import Configuracoes from './pages/Configuracoes.jsx';
 import Equipe from './pages/Equipe.jsx';
+import Pedidos from './pages/Pedidos.jsx';
 import { useAuth } from './hooks/useAuth.jsx';
 
 /** Só o dono entra; a API também recusa (403) mesmo que alguém force a URL. */
@@ -31,6 +32,7 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
+          <Route path="pedidos" element={<Pedidos />} />
           <Route path="historico" element={<Historico />} />
           <Route path="configuracoes" element={<Configuracoes />} />
           <Route path="equipe" element={<SomenteDono><Equipe /></SomenteDono>} />

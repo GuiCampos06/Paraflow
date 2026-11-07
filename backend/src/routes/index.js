@@ -8,6 +8,7 @@ import eventosRoutes from './eventos.routes.js';
 import configRoutes from './config.routes.js';
 import dispositivoRoutes from './dispositivo.routes.js';
 import equipeRoutes from './equipe.routes.js';
+import pedidosRoutes from './pedidos.routes.js';
 
 const router = Router();
 
@@ -28,6 +29,7 @@ router.use('/estoque', autenticar, estoqueRoutes);
 router.use('/eventos', autenticar, eventosRoutes);
 router.use('/config', autenticar, configRoutes);
 router.use('/dispositivo', autenticar, dispositivoRoutes);
+router.use('/pedidos', autenticar, pedidosRoutes);
 router.use('/equipe', autenticar, exigirDono, equipeRoutes); // só o dono gerencia a equipe
 
 export default router;

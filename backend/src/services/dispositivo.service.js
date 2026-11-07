@@ -65,6 +65,15 @@ export async function dispositivoDaOrganizacao(organizacaoId, deviceId) {
   return d;
 }
 
+/** Máquina para receber um aviso (ex.: pedido): a pedida, senão uma online, senão a primeira. Pode ser null. */
+export async function escolherDispositivo(organizacaoId, deviceId) {
+  if (deviceId) return Dispositivo.findOne({ organizacaoId, deviceId }).lean();
+  return (
+    (await Dispositivo.findOne({ organizacaoId, online: true }).sort({ createdAt: 1 }).lean()) ??
+    (await Dispositivo.findOne({ organizacaoId }).sort({ createdAt: 1 }).lean())
+  );
+}
+
 /**
  * Usado pelo MQTT: confere deviceId + token. Retorna o dispositivo (com a organização)
  * ou null. Comparação em tempo constante.
@@ -94,11 +103,15 @@ export async function atualizarStatus(dispositivo, { online, ligado }) {
  * Envia o comando ao ESP32 via MQTT. Responde "enviado": quem confirma é o próprio
  * dispositivo, publicando o novo status (que chega por WebSocket).
  */
-export async function enviarComando(organizacaoId, deviceId, ligado) {
+export async function enviarComando(organizacaoId, deviceId, { ligado, tara }) {
   const d = await dispositivoDaOrganizacao(organizacaoId, deviceId);
-  const ok = await publicarComando(d.deviceId, ligado);
+  let ok = true;
+  // ligar/desligar fica "retido" no broker (a máquina obedece ao reconectar).
+  if (ligado !== undefined) ok = (await publicarComando(d.deviceId, { ligado }, true)) && ok;
+  // tara é um gesto pontual: NÃO pode ficar retida, senão zeraria a balança a cada reconexão.
+  if (tara) ok = (await publicarComando(d.deviceId, { tara: true }, false)) && ok;
   if (!ok) {
     throw new AppError(503, 'Broker MQTT indisponível. Comando não enviado.', { codigo: 'MQTT_OFFLINE' });
   }
-  return { deviceId: d.deviceId, ligado, enviado: true };
+  return { deviceId: d.deviceId, ...(ligado !== undefined && { ligado }), ...(tara && { tara: true }), enviado: true };
 }

@@ -83,6 +83,10 @@ Veja [`iot/README.md`](iot/README.md).
 - `web/public/cat.png` (mascote) e `web/public/parafusos.webp` (fundo do login/cadastro)
 - `mobile/assets/` (ícone, splash, mascote)
 
+## Dashboard e pedidos
+- **Dashboard:** parafuso com menos estoque (e os 2 seguintes), peças contadas hoje, média por dia, média dos últimos 7 dias, taxa de rejeição, gráfico dos últimos 7 dias, últimas peças e **peso da balança ao vivo**.
+- **Pedido de parafusos:** qualquer usuário escolhe tipo, comprimento e quantidade. As peças saem do estoque na hora, o carrossel da máquina gira para a gaveta certa, e o pedido pode ser marcado como retirado ou cancelado (as peças voltam).
+
 ## Rotas
 
 As rotas **reais** ficam no backend, em `backend/src/routes/` (montadas em `/api` por `src/app.js`, e o `src/server.js` sobe tudo). O front nunca decide sozinho se alguém está logado: toda rota protegida do web (`/app/*`) e a pilha privada do mobile só abrem depois que o servidor confirma a sessão em `GET /api/auth/me`, e cada chamada protegida valida o JWT e confirma o usuário no MongoDB.
@@ -91,7 +95,7 @@ As rotas **reais** ficam no backend, em `backend/src/routes/` (montadas em `/api
 |---|---|
 | `/` | Pública (landing) |
 | `/login`, `/cadastro` | Só sem sessão (com sessão vai ao dashboard) |
-| `/app/dashboard`, `/app/historico`, `/app/configuracoes` | Só com sessão confirmada pelo servidor |
+| `/app/dashboard`, `/app/pedidos`, `/app/historico`, `/app/configuracoes` | Só com sessão confirmada pelo servidor |
 | `/app/equipe` | Só o dono (a API também responde 403 aos demais) |
 
 ## Fluxo de trabalho no GitHub
@@ -107,8 +111,8 @@ As rotas **reais** ficam no backend, em `backend/src/routes/` (montadas em `/api
 
 ## Backlog
 - Editar a tabela de peso na tela de configurações (o limite de estoque baixo já é editável)
-- Registro de saída/baixa de estoque (hoje o sistema só conta entradas)
+- Fila de pedidos com aprovação do dono (hoje o pedido sai direto do estoque)
 - Recuperação de senha
 - Fila offline no firmware quando o MQTT cair
-- Célula de carga + HX711 na versão física
+- Montagem física: célula de 50–500 g com HX711 (a de 5 kg não tem resolução para parafusos de 0,3–3 g)
 - Testes automatizados do backend

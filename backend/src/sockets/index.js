@@ -50,6 +50,14 @@ export function iniciarSockets(httpServer) {
     }
   });
 
+  bus.on('dispositivo:telemetria', ({ organizacaoId, telemetria }) =>
+    io.to(sala(organizacaoId)).emit('dispositivo:telemetria', telemetria)
+  );
+
+  bus.on('pedido:atualizado', ({ organizacaoId, pedido }) =>
+    io.to(sala(organizacaoId)).emit('pedido:atualizado', pedido)
+  );
+
   bus.on('dispositivo:status', ({ organizacaoId, dispositivo }) =>
     io.to(sala(organizacaoId)).emit('dispositivo:status', dispositivo)
   );

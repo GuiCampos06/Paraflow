@@ -15,6 +15,7 @@ export default function AppLayout() {
           <span className="app-org" title="Sua organização">{usuario.organizacao?.nome}</span>
           <nav className="app-nav" aria-label="Principal">
             <NavLink to="/app/dashboard" className={({ isActive }) => (isActive ? 'ativo' : '')}>Dashboard</NavLink>
+            <NavLink to="/app/pedidos" className={({ isActive }) => (isActive ? 'ativo' : '')}>Pedidos</NavLink>
             <NavLink to="/app/historico" className={({ isActive }) => (isActive ? 'ativo' : '')}>Histórico</NavLink>
             <NavLink to="/app/configuracoes" className={({ isActive }) => (isActive ? 'ativo' : '')}>Configurações</NavLink>
             {usuario.papel === 'dono' && (

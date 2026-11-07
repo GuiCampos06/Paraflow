@@ -19,7 +19,8 @@ router.post('/', exigirDono, validar(dispositivoCriarSchema), asyncHandler(async
 }));
 
 router.post('/comando', validar(comandoSchema), asyncHandler(async (req, res) => {
-  res.status(202).json(await enviarComando(req.usuario.organizacaoId, req.dados.deviceId, req.dados.ligado));
+  const { deviceId, ligado, tara } = req.dados;
+  res.status(202).json(await enviarComando(req.usuario.organizacaoId, deviceId, { ligado, tara }));
 }));
 
 router.post('/:id/token', exigirDono, asyncHandler(async (req, res) => {
