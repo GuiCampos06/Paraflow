@@ -7,7 +7,7 @@ import { useAuth } from '../hooks/useAuth.jsx';
 import { api } from '../services/api.js';
 import { validadores } from '../utils/validacao.js';
 
-const VAZIO = { nome: '', usuario: '', email: '', senha: '', confirmar: '' };
+const VAZIO = { organizacao: '', nome: '', usuario: '', email: '', senha: '', confirmar: '' };
 
 export default function Cadastro() {
   const { registrar } = useAuth();
@@ -61,7 +61,10 @@ export default function Cadastro() {
 
     setEnviando(true);
     try {
-      await registrar({ nome: v.nome.trim(), usuario: v.usuario.trim(), email: v.email.trim(), senha: v.senha });
+      await registrar({
+        organizacao: v.organizacao.trim(), nome: v.nome.trim(), usuario: v.usuario.trim(),
+        email: v.email.trim(), senha: v.senha,
+      });
       navegar('/login', { replace: true, state: { entrada: 'esquerda', cadastrado: true } });
     } catch (err) {
       if (err.campos && Object.keys(err.campos).length) setMsgs((m) => ({ ...m, ...err.campos }));
@@ -84,6 +87,8 @@ export default function Cadastro() {
     <AuthLayout invertido>
       <form className="form form-cadastro" onSubmit={enviar} noValidate>
         <h2>Crie sua conta</h2>
+
+        {campoTexto('organizacao', 'Nome da empresa', { autoComplete: 'organization', maxLength: 80 })}
 
         <div className="linha">
           {campoTexto('nome', 'Nome completo', { autoComplete: 'name' })}

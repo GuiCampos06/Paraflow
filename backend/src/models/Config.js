@@ -22,9 +22,9 @@ const TABELA_PADRAO = [
   { comprimentoMm: c, bitola: 'M4', media: m4, desvio: d4 },
 ]);
 
-/** Documento único (chave "principal") com as regras do sistema. */
+/** Regras do sistema: um documento por organização. */
 const configSchema = new mongoose.Schema({
-  chave: { type: String, default: 'principal', unique: true },
+  organizacaoId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organizacao', required: true, unique: true },
   limiteBaixo: { type: Number, default: 5 },
   kDesvios: { type: Number, default: 2 },
   comprimentosMm: { type: [Number], default: [5, 10, 15, 20] },

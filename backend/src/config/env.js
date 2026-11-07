@@ -14,7 +14,6 @@ const schema = z.object({
   MQTT_USERNAME: z.preprocess(vazioParaUndefined, z.string().optional()),
   MQTT_PASSWORD: z.preprocess(vazioParaUndefined, z.string().optional()),
   MQTT_TOPIC_PREFIX: z.string().min(1).default('paraflow'),
-  DEFAULT_DEVICE_ID: z.string().min(1).default('esp32-01'),
   ALLOW_SIMULATION: z.enum(['true', 'false']).default('false'),
 });
 

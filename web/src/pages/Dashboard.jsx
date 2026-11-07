@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../services/api.js';
 import { useEstoqueRealtime } from '../hooks/useEstoqueRealtime.js';
 
@@ -44,10 +45,15 @@ export default function Dashboard() {
           <i />{dispositivo?.deviceId ?? 'Dispositivo'}: {dispositivo?.online ? 'online' : 'offline'}
         </span>
         <span className={`pilula${dispositivo?.ligado ? ' on' : ''}`}><i />Separador {dispositivo?.ligado ? 'ligado' : 'desligado'}</span>
-        <button className={`btn btn-sm ${dispositivo?.ligado ? 'btn-perigo' : 'btn-solido'}`} onClick={alternar} disabled={enviando}>
+        <button className={`btn btn-sm ${dispositivo?.ligado ? 'btn-perigo' : 'btn-solido'}`} onClick={alternar} disabled={enviando || !dispositivo}>
           {dispositivo?.ligado ? 'Desligar separador' : 'Ligar separador'}
         </button>
       </div>
+      {!dispositivo && (
+        <div className="alerta-baixo" role="status">
+          <strong>Nenhuma máquina vinculada.</strong> Adicione uma em <Link to="/app/configuracoes">Configurações → Máquinas</Link> para começar a contar.
+        </div>
+      )}
       {aviso && <p className="app-sub" role="status">{aviso}</p>}
 
       {estoque.estoqueBaixo && (

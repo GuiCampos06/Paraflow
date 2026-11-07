@@ -6,6 +6,7 @@ import Login from './pages/Login.jsx';
 import Cadastro from './pages/Cadastro.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Historico from './pages/Historico.jsx';
+import Configuracoes from './pages/Configuracoes.jsx';
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="historico" element={<Historico />} />
+          <Route path="configuracoes" element={<Configuracoes />} />
         </Route>
       </Route>
 

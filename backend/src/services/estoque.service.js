@@ -1,16 +1,20 @@
+import mongoose from 'mongoose';
 import { Evento } from '../models/Evento.js';
 import { bus } from '../utils/bus.js';
 import { obterConfig } from './config.service.js';
 
+// Em aggregate() o MongoDB NÃO converte string → ObjectId sozinho (find() converte).
+const oid = (id) => new mongoose.Types.ObjectId(String(id));
+
 /**
- * Estoque = contagem de eventos válidos agrupados por comprimento × bitola.
+ * Estoque = contagem de eventos válidos da ORGANIZAÇÃO, por comprimento × bitola.
  * O MongoDB (via eventos) é a fonte da verdade: reiniciar o ESP32 não zera nada.
  */
-export async function obterEstoque() {
-  const cfg = await obterConfig();
+export async function obterEstoque(organizacaoId) {
+  const cfg = await obterConfig(organizacaoId);
 
   const agg = await Evento.aggregate([
-    { $match: { valido: true } },
+    { $match: { organizacaoId: oid(organizacaoId), valido: true } },
     { $group: { _id: { c: '$comprimentoMm', b: '$bitola' }, quantidade: { $sum: 1 } } },
   ]);
   const mapa = new Map(agg.map((a) => [`${a._id.c}|${a._id.b}`, a.quantidade]));
@@ -41,22 +45,29 @@ export async function obterEstoque() {
   };
 }
 
-/** Grava a peça e notifica quem estiver ouvindo (WebSocket, MQTT de alerta). */
-export async function registrarEvento({ deviceId, comp, bitola, peso, valido }) {
+/** Grava a peça (já com a organização da máquina) e notifica quem estiver ouvindo. */
+export async function registrarEvento({ dispositivo, comp, bitola, peso, valido }) {
+  const organizacaoId = dispositivo.organizacaoId;
   const evento = await Evento.create({
-    deviceId,
+    organizacaoId,
+    deviceId: dispositivo.deviceId,
     comprimentoMm: comp,
     bitola: valido ? bitola : null,
     peso,
     valido,
   });
-  const estoque = await obterEstoque();
-  bus.emit('estoque:atualizado', { estoque, evento: evento.toObject(), deviceId });
+  const estoque = await obterEstoque(organizacaoId);
+  bus.emit('estoque:atualizado', {
+    organizacaoId: String(organizacaoId),
+    estoque,
+    evento: evento.toObject(),
+    deviceId: dispositivo.deviceId,
+  });
   return { evento, estoque };
 }
 
-export async function listarEventos({ de, ate, bitola, valido, pagina, limite }) {
-  const filtro = {};
+export async function listarEventos(organizacaoId, { de, ate, bitola, valido, pagina, limite }) {
+  const filtro = { organizacaoId };
   if (de || ate) filtro.ocorridoEm = { ...(de && { $gte: de }), ...(ate && { $lte: ate }) };
   if (bitola) filtro.bitola = bitola;
   if (valido) filtro.valido = valido === 'true';
@@ -69,8 +80,8 @@ export async function listarEventos({ de, ate, bitola, valido, pagina, limite })
 }
 
 /** Peças válidas por dia e bitola (histórico pedido no briefing). */
-export async function resumoDiario({ de, ate }) {
-  const match = { valido: true };
+export async function resumoDiario(organizacaoId, { de, ate }) {
+  const match = { organizacaoId: oid(organizacaoId), valido: true };
   if (de || ate) match.ocorridoEm = { ...(de && { $gte: de }), ...(ate && { $lte: ate }) };
 
   const linhas = await Evento.aggregate([

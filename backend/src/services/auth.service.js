@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
 import { Usuario } from '../models/Usuario.js';
+import { Organizacao } from '../models/Organizacao.js';
 import { AppError } from '../utils/AppError.js';
 
 const SALT_ROUNDS = 12;
@@ -9,9 +10,20 @@ const SALT_ROUNDS = 12;
 const HASH_FALSO = bcrypt.hashSync('senha-fantasma', SALT_ROUNDS);
 
 const assinar = (u) =>
-  jwt.sign({ papel: u.papel }, env.JWT_SECRET, { subject: u._id.toString(), expiresIn: env.JWT_EXPIRES_IN });
+  jwt.sign({}, env.JWT_SECRET, { subject: u._id.toString(), expiresIn: env.JWT_EXPIRES_IN });
 
-export async function registrar({ nome, usuario, email, senha }) {
+/** Formato público do usuário (nunca inclui hash de senha). `org` = documento da organização. */
+export const paraPublico = (u, org) => ({
+  id: u._id.toString(),
+  nome: u.nome,
+  usuario: u.usuario,
+  email: u.email,
+  papel: u.papel,
+  organizacaoId: org._id.toString(),
+  organizacao: { id: org._id.toString(), nome: org.nome },
+});
+
+export async function registrar({ nome, usuario, email, senha, organizacao }) {
   const [porUsuario, porEmail] = await Promise.all([
     Usuario.exists({ usuario }),
     Usuario.exists({ email }),
@@ -27,21 +39,28 @@ export async function registrar({ nome, usuario, email, senha }) {
   }
 
   const senhaHash = await bcrypt.hash(senha, SALT_ROUNDS);
-  // o primeiro usuário do sistema vira administrador
-  const papel = (await Usuario.estimatedDocumentCount()) === 0 ? 'admin' : 'operador';
-  const novo = await Usuario.create({ nome, usuario, email, senhaHash, papel });
-  return { token: assinar(novo), usuario: novo.paraJSON() };
+
+  // quem cria a organização é o dono dela
+  const org = await Organizacao.create({ nome: organizacao });
+  let novo;
+  try {
+    novo = await Usuario.create({ nome, usuario, email, senhaHash, organizacaoId: org._id, papel: 'dono' });
+  } catch (e) {
+    await Organizacao.deleteOne({ _id: org._id }); // não deixa organização órfã
+    throw e;
+  }
+  return { token: assinar(novo), usuario: paraPublico(novo, org) };
 }
 
 export async function entrar({ identificador, senha }) {
   const filtro = identificador.includes('@') ? { email: identificador } : { usuario: identificador };
-  const u = await Usuario.findOne(filtro).select('+senhaHash');
+  const u = await Usuario.findOne(filtro).select('+senhaHash').populate('organizacaoId', 'nome');
   const ok = await bcrypt.compare(senha, u?.senhaHash ?? HASH_FALSO);
-  if (!u || !ok) throw new AppError(401, 'Usuário ou senha incorretos.', { codigo: 'CREDENCIAIS' });
-  return { token: assinar(u), usuario: u.paraJSON() };
+  if (!u || !ok || !u.organizacaoId) throw new AppError(401, 'Usuário ou senha incorretos.', { codigo: 'CREDENCIAIS' });
+  return { token: assinar(u), usuario: paraPublico(u, u.organizacaoId) };
 }
 
-/** Valida o JWT e confirma no MongoDB que o usuário ainda existe. */
+/** Valida o JWT e confirma no MongoDB que o usuário (e sua organização) ainda existem. */
 export async function usuarioDoToken(token) {
   let payload;
   try {
@@ -49,9 +68,9 @@ export async function usuarioDoToken(token) {
   } catch {
     throw new AppError(401, 'Sessão inválida ou expirada.', { codigo: 'TOKEN_INVALIDO' });
   }
-  const u = await Usuario.findById(payload.sub);
-  if (!u) throw new AppError(401, 'Usuário não existe mais.', { codigo: 'USUARIO_INEXISTENTE' });
-  return { id: u._id.toString(), nome: u.nome, usuario: u.usuario, email: u.email, papel: u.papel };
+  const u = await Usuario.findById(payload.sub).populate('organizacaoId', 'nome');
+  if (!u || !u.organizacaoId) throw new AppError(401, 'Usuário não existe mais.', { codigo: 'USUARIO_INEXISTENTE' });
+  return paraPublico(u, u.organizacaoId);
 }
 
 export async function disponibilidade({ usuario, email }) {

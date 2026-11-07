@@ -62,15 +62,18 @@ npm install && npx expo install --fix     # alinha as versões nativas ao SDK do
 npm run start
 ```
 
-> O **primeiro usuário cadastrado vira administrador** (pode alterar `PUT /api/config`).
+> Cada cadastro cria uma **organização** (a empresa) e o usuário vira o **dono** dela. Cada organização só vê os próprios dados.
+>
+> **Já tinha rodado a versão anterior?** Os dados antigos não têm organização. Apague o banco antes: `npm run resetar-banco -w backend -- --sim` (ou apague as coleções no Compass/Atlas).
 
-### Testar sem hardware
-Com o backend rodando, simule o ESP32 publicando peças no MQTT:
+### Vincular uma máquina e testar sem hardware
+1. No site, entre em **Configurações → Máquinas → Adicionar máquina**. Copie o `DEVICE_ID` e o `TOKEN` (aparecem uma vez).
+2. Simule o ESP32 publicando peças no MQTT:
 ```bash
-npm run simular            # 1 peça por segundo
-npm run simular -- 30 200  # 30 peças, a cada 200 ms
+npm run simular -- <deviceId> <token>            # 1 peça por segundo
+npm run simular -- <deviceId> <token> 30 200     # 30 peças, a cada 200 ms
 ```
-Abra o dashboard e veja o estoque subir em tempo real. Alternativa sem broker: `POST /api/eventos` (precisa de `ALLOW_SIMULATION=true`).
+Abra o dashboard e veja o estoque subir em tempo real. Alternativa sem broker: `POST /api/eventos` (precisa de `ALLOW_SIMULATION=true` e de uma máquina cadastrada).
 
 ### Com o Wokwi / ESP32
 Veja [`iot/README.md`](iot/README.md).
@@ -101,7 +104,7 @@ As rotas **reais** ficam no backend, em `backend/src/routes/` (montadas em `/api
 - Broker MQTT público (HiveMQ) é só para demonstração: use prefixo único; em produção use broker com usuário/senha e TLS.
 
 ## Backlog
-- Tela de configurações (limite de estoque baixo e tabela de peso) usando `GET/PUT /api/config`
+- Editar a tabela de peso na tela de configurações (o limite de estoque baixo já é editável)
 - Registro de saída/baixa de estoque (hoje o sistema só conta entradas)
 - Recuperação de senha
 - Fila offline no firmware quando o MQTT cair

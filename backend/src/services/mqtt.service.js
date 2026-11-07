@@ -6,11 +6,15 @@ import { registrarEvento } from './estoque.service.js';
 import { Dispositivo } from '../models/Dispositivo.js';
 
 /**
- * Tópicos (prefixo configurável em MQTT_TOPIC_PREFIX):
- *   <p>/<id>/evento  ESP32 → backend   {"comp":10,"bitola":"M3","peso":1.07,"valido":true}
- *   <p>/<id>/status  ESP32 → backend   {"online":true,"ligado":true}   (retain + LWT)
- *   <p>/<id>/cmd     backend → ESP32   {"ligado":false}                (retain)
- *   <p>/<id>/alerta  backend → ESP32   {"estoqueBaixo":true}           (retain)
+ * Tópicos (prefixo configurável em MQTT_TOPIC_PREFIX; <id> = deviceId gerado pelo servidor):
+ *   <p>/<id>/evento  ESP32 → backend   {"comp":10,"bitola":"M3","peso":1.07,"valido":true,"token":"..."}
+ *   <p>/<id>/status  ESP32 → backend   {"online":true,"ligado":true,"token":"..."}  (retain + LWT)
+ *   <p>/<id>/cmd     backend → ESP32   {"ligado":false}                             (retain)
+ *   <p>/<id>/alerta  backend → ESP32   {"estoqueBaixo":true}                        (retain)
+ *
+ * Toda mensagem do ESP32 carrega o token da máquina. Sem deviceId + token válidos o
+ * backend descarta a mensagem: é assim que cada evento é ligado à organização certa.
+ * (Num broker público o token trafega em texto puro; em produção use TLS + usuário/senha no broker.)
  */
 let client = null;
 const P = env.MQTT_TOPIC_PREFIX;
@@ -38,13 +42,11 @@ export function iniciarMqtt() {
   client.on('error', (e) => console.error('📡 MQTT erro:', e.message));
   client.on('message', aoReceber);
 
-  // quando o estoque muda, avisa os dispositivos se algum tipo está baixo
-  bus.on('estoque:atualizado', async ({ estoque }) => {
+  // quando o estoque de uma organização muda, avisa SÓ as máquinas dela
+  bus.on('estoque:atualizado', async ({ organizacaoId, estoque }) => {
     try {
-      const ids = new Set((await Dispositivo.find().distinct('deviceId')).concat(env.DEFAULT_DEVICE_ID));
-      for (const id of ids) {
-        publicar(`${P}/${id}/alerta`, { estoqueBaixo: estoque.estoqueBaixo });
-      }
+      const ids = await Dispositivo.find({ organizacaoId }).distinct('deviceId');
+      for (const id of ids) publicar(`${P}/${id}/alerta`, { estoqueBaixo: estoque.estoqueBaixo });
     } catch (e) {
       console.error('📡 Falha ao publicar alerta:', e.message);
     }
@@ -63,16 +65,21 @@ async function aoReceber(topico, buffer) {
   }
 
   try {
+    // import dinâmico evita dependência circular (dispositivo.service importa este arquivo)
+    const { autenticarDispositivo, atualizarStatus } = await import('./dispositivo.service.js');
+
+    const dispositivo = await autenticarDispositivo(deviceId, json?.token);
+    if (!dispositivo) {
+      return console.warn(`📡 Mensagem rejeitada: máquina "${deviceId}" desconhecida ou token inválido.`);
+    }
+
     if (tipo === 'evento') {
-      const r = eventoSchema.safeParse(json);
+      const r = eventoSchema.safeParse(json); // o schema descarta o campo "token"
       if (!r.success) return console.warn(`📡 Evento inválido de ${deviceId}:`, r.error.issues[0]?.message);
-      await registrarEvento({ deviceId, ...r.data });
+      await registrarEvento({ dispositivo, ...r.data });
     } else if (tipo === 'status') {
       const r = statusSchema.safeParse(json);
-      if (!r.success) return;
-      // import dinâmico evita dependência circular (dispositivo.service importa este arquivo)
-      const { atualizarStatus } = await import('./dispositivo.service.js');
-      await atualizarStatus(deviceId, r.data);
+      if (r.success) await atualizarStatus(dispositivo, r.data);
     }
   } catch (e) {
     console.error(`📡 Erro ao processar ${topico}:`, e.message);

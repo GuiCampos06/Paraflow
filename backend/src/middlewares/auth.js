@@ -16,7 +16,7 @@ export async function autenticar(req, _res, next) {
   }
 }
 
-export const exigirAdmin = (req, _res, next) =>
-  req.usuario?.papel === 'admin'
+export const exigirDono = (req, _res, next) =>
+  req.usuario?.papel === 'dono'
     ? next()
-    : next(new AppError(403, 'Apenas administradores podem fazer isso.', { codigo: 'PROIBIDO' }));
+    : next(new AppError(403, 'Apenas o dono da organização pode fazer isso.', { codigo: 'PROIBIDO' }));

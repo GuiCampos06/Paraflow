@@ -10,7 +10,7 @@ import { api } from '../services/api';
 import { validadores } from '../utils/validacao';
 import { colors } from '../theme/colors';
 
-const VAZIO = { nome: '', usuario: '', email: '', senha: '', confirmar: '' };
+const VAZIO = { organizacao: '', nome: '', usuario: '', email: '', senha: '', confirmar: '' };
 
 export default function CadastroScreen({ navigation }) {
   const { registrar, entrar } = useAuth();
@@ -50,7 +50,7 @@ export default function CadastroScreen({ navigation }) {
 
     setCarregando(true);
     try {
-      const dados = { nome: v.nome.trim(), usuario: v.usuario.trim(), email: v.email.trim(), senha: v.senha };
+      const dados = { organizacao: v.organizacao.trim(), nome: v.nome.trim(), usuario: v.usuario.trim(), email: v.email.trim(), senha: v.senha };
       await registrar(dados);
       // já entra direto com a conta criada
       await entrar({ identificador: dados.usuario, senha: dados.senha, lembrar: true });
@@ -69,6 +69,7 @@ export default function CadastroScreen({ navigation }) {
           <Logo tamanho={28} />
           <Text style={styles.titulo}>Crie sua conta</Text>
 
+          <Campo rotulo="Nome da empresa" value={v.organizacao} onChangeText={mudar('organizacao')} onBlur={() => validar('organizacao')} autoCapitalize="words" maxLength={80} erro={msgs.organizacao} />
           <Campo rotulo="Nome completo" value={v.nome} onChangeText={mudar('nome')} onBlur={() => validar('nome')} autoCapitalize="words" textContentType="name" erro={msgs.nome} />
           <Campo rotulo="Usuário" value={v.usuario} onChangeText={mudar('usuario')} onBlur={() => checar('usuario')} maxLength={20} textContentType="username" erro={msgs.usuario} />
           <Campo rotulo="E-mail" value={v.email} onChangeText={mudar('email')} onBlur={() => checar('email')} keyboardType="email-address" textContentType="emailAddress" erro={msgs.email} />

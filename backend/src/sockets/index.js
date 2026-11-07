@@ -4,11 +4,13 @@ import { bus } from '../utils/bus.js';
 import { usuarioDoToken } from '../services/auth.service.js';
 
 let io = null;
+const sala = (organizacaoId) => `org:${organizacaoId}`;
 
 /**
- * WebSocket autenticado: o cliente envia o JWT em `auth.token` e o servidor
- * confirma no banco antes de aceitar a conexão.
- * Eventos emitidos: 'estoque:atualizado', 'alerta:estoque-baixo', 'dispositivo:status'.
+ * WebSocket autenticado: o cliente envia o JWT em `auth.token` e o servidor confirma
+ * no banco antes de aceitar. Cada conexão entra SÓ na sala da sua organização, então
+ * uma empresa nunca recebe, em tempo real, os dados de outra.
+ * Eventos: 'estoque:atualizado', 'alerta:estoque-baixo', 'evento:novo', 'dispositivo:status'.
  */
 export function iniciarSockets(httpServer) {
   io = new Server(httpServer, { cors: { origin: env.corsOrigins } });
@@ -22,13 +24,16 @@ export function iniciarSockets(httpServer) {
     }
   });
 
-  bus.on('estoque:atualizado', ({ estoque, evento }) => {
-    io.emit('estoque:atualizado', estoque);
+  io.on('connection', (socket) => socket.join(sala(socket.data.usuario.organizacaoId)));
+
+  bus.on('estoque:atualizado', ({ organizacaoId, estoque, evento }) => {
+    const alvo = io.to(sala(organizacaoId));
+    alvo.emit('estoque:atualizado', estoque);
     if (estoque.estoqueBaixo) {
-      io.emit('alerta:estoque-baixo', { bitolas: estoque.bitolasBaixas, limite: estoque.limiteBaixo });
+      alvo.emit('alerta:estoque-baixo', { bitolas: estoque.bitolasBaixas, limite: estoque.limiteBaixo });
     }
     if (evento) {
-      io.emit('evento:novo', {
+      alvo.emit('evento:novo', {
         id: evento._id.toString(),
         comprimentoMm: evento.comprimentoMm,
         bitola: evento.bitola,
@@ -39,7 +44,9 @@ export function iniciarSockets(httpServer) {
     }
   });
 
-  bus.on('dispositivo:status', (disp) => io.emit('dispositivo:status', disp));
+  bus.on('dispositivo:status', ({ organizacaoId, dispositivo }) =>
+    io.to(sala(organizacaoId)).emit('dispositivo:status', dispositivo)
+  );
 
   return io;
 }

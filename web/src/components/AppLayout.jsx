@@ -12,9 +12,11 @@ export default function AppLayout() {
       <header className="app-topo">
         <div className="container app-topo-in">
           <span className="logo logo-sm"><Logo /></span>
+          <span className="app-org" title="Sua organização">{usuario.organizacao?.nome}</span>
           <nav className="app-nav" aria-label="Principal">
             <NavLink to="/app/dashboard" className={({ isActive }) => (isActive ? 'ativo' : '')}>Dashboard</NavLink>
             <NavLink to="/app/historico" className={({ isActive }) => (isActive ? 'ativo' : '')}>Histórico</NavLink>
+            <NavLink to="/app/configuracoes" className={({ isActive }) => (isActive ? 'ativo' : '')}>Configurações</NavLink>
           </nav>
           <div className="app-usuario">
             <span>{usuario.nome}</span>

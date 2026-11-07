@@ -8,6 +8,9 @@ Firmware do separador. Publica **um evento JSON por peça** no MQTT; o estoque �
 - `libraries.txt`: PubSubClient, ArduinoJson, ESP32Servo
 - `diagram.json` e `wokwi-project.txt`: **mova os arquivos atuais sem alterações** (`git mv Codigo_Sistema_Iot/diagram.json iot/`)
 
+## Vincular a máquina à sua organização
+No site: **Configurações → Máquinas → Adicionar máquina**. Copie as linhas `DEVICE_ID` e `DEVICE_TOKEN` (o token aparece uma única vez) para o `secrets.h`. O backend só aceita mensagens de máquinas com `deviceId` + token válidos, e grava cada peça na organização dona da máquina.
+
 ## Simular no Wokwi
 1. Crie `secrets.h` a partir do exemplo (no Wokwi, crie o arquivo na aba do projeto).
 2. Use um broker que o backend também alcance. O mais simples é o público `broker.hivemq.com`

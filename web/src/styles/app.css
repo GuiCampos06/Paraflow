@@ -76,3 +76,29 @@ table.tabela { width: 100%; border-collapse: collapse; font-variant-numeric: tab
   .app-topo-in { gap: 10px; }
   .status-linha .btn { margin-left: 0; width: 100%; }
 }
+
+/* ===== Organização, máquinas e configurações ===== */
+.app-org { padding: 4px 12px; border: 1px solid var(--borda); border-radius: 999px; color: var(--suave); font-size: .8rem; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-main a { color: var(--ciano); }
+
+.maquinas { list-style: none; display: grid; gap: 12px; }
+.maquina { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 18px; border: 1px solid var(--borda); border-radius: 16px; }
+.maquina-info { margin-right: auto; min-width: 0; }
+.maquina-info b { display: block; }
+.maquina-info code { color: var(--suave); font-size: .82rem; }
+.maquina .acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.form-inline { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+.form-inline input[type="text"], .form-inline input[type="number"], .form-inline input[type="email"], .form-inline input[type="password"], .form-inline select {
+  flex: 1 1 220px; height: 46px; padding: 0 20px; border: 1px solid var(--borda); border-radius: 999px;
+  background: var(--campo); color: var(--texto); font: inherit;
+}
+.form-inline input:focus, .form-inline select:focus { outline: none; border-color: var(--ciano); box-shadow: 0 0 0 3px rgba(0,229,255,.25); }
+
+.token-box { margin-top: 18px; padding: 18px 20px; border: 1px solid var(--verde); border-radius: 16px; background: rgba(31,201,154,.07); }
+.token-box strong { color: var(--ok); }
+.token-box pre { margin: 12px 0; padding: 14px; overflow-x: auto; border-radius: 12px; background: var(--campo); color: var(--texto); font-size: .85rem; }
+.token-box p { color: var(--suave); font-size: .9rem; }
+
+.msg-app { margin-top: 12px; color: var(--suave); }
+.msg-app.erro { color: var(--erro); text-align: left; }

@@ -4,9 +4,9 @@
  * Fluxo: sensor de comprimento (botão) → pesa → identifica a bitola → move o carrossel
  *        → publica 1 evento JSON por peça no MQTT. O ESTOQUE é calculado no backend.
  *
- * Tópicos (<prefixo>/<DEVICE_ID>/...):
- *   evento  (publica)   {"comp":10,"bitola":"M3","peso":1.07,"valido":true}
- *   status  (publica)   {"online":true,"ligado":true}  retain + LWT {"online":false}
+ * Tópicos (<prefixo>/<DEVICE_ID>/...). Toda mensagem enviada carrega o DEVICE_TOKEN:
+ *   evento  (publica)   {"comp":10,"bitola":"M3","peso":1.07,"valido":true,"token":"..."}
+ *   status  (publica)   {"online":true,"ligado":true,"token":"..."}  retain + LWT {"online":false,"token":"..."}
  *   cmd     (assina)    {"ligado":false}
  *   alerta  (assina)    {"estoqueBaixo":true}
  *
@@ -16,9 +16,7 @@
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <ESP32Servo.h>
-#include "secrets.h"
-
-const char* DEVICE_ID = "esp32-01";
+#include "secrets.h"  // WIFI_*, MQTT_*, TOPIC_PREFIX, DEVICE_ID, DEVICE_TOKEN
 
 // ---------- Pinos ----------
 const int NUM_COMPRIMENTOS = 4;  // 5, 10, 15, 20 mm
@@ -60,6 +58,7 @@ PubSubClient mqtt(wifi);
 Servo carrossel;
 
 char topicoEvento[80], topicoStatus[80], topicoCmd[80], topicoAlerta[80];
+char mensagemLwt[128];  // {"online":false,"token":"..."}
 
 bool separadorLigado = true;
 bool estoqueBaixo = false;            // vem do backend (tópico alerta)
@@ -77,9 +76,9 @@ unsigned long ultimaTentativaWifi = 0, ultimaTentativaMqtt = 0;
 
 // ---------- MQTT ----------
 void publicaStatus(bool online = true) {
-  char buf[64];
-  snprintf(buf, sizeof(buf), "{\"online\":%s,\"ligado\":%s}",
-           online ? "true" : "false", separadorLigado ? "true" : "false");
+  char buf[128];
+  snprintf(buf, sizeof(buf), "{\"online\":%s,\"ligado\":%s,\"token\":\"%s\"}",
+           online ? "true" : "false", separadorLigado ? "true" : "false", DEVICE_TOKEN);
   mqtt.publish(topicoStatus, buf, true);  // retain
 }
 
@@ -107,12 +106,13 @@ void publicaEvento(int comp, int bitola, float peso, bool valido) {
     Serial.println("MQTT offline: evento nao enviado");  // TODO: fila em memoria/SPIFFS
     return;
   }
-  char buf[128];
+  char buf[192];
   if (valido) {
-    snprintf(buf, sizeof(buf), "{\"comp\":%d,\"bitola\":\"M%d\",\"peso\":%.2f,\"valido\":true}",
-             comp, bitola + 2, peso);
+    snprintf(buf, sizeof(buf), "{\"comp\":%d,\"bitola\":\"M%d\",\"peso\":%.2f,\"valido\":true,\"token\":\"%s\"}",
+             comp, bitola + 2, peso, DEVICE_TOKEN);
   } else {
-    snprintf(buf, sizeof(buf), "{\"comp\":%d,\"bitola\":null,\"peso\":%.2f,\"valido\":false}", comp, peso);
+    snprintf(buf, sizeof(buf), "{\"comp\":%d,\"bitola\":null,\"peso\":%.2f,\"valido\":false,\"token\":\"%s\"}",
+             comp, peso, DEVICE_TOKEN);
   }
   mqtt.publish(topicoEvento, buf);
 }
@@ -135,8 +135,8 @@ void mantemConexoes() {
     String clientId = String("paraflow-") + DEVICE_ID;
     const char* user = strlen(MQTT_USER) ? MQTT_USER : nullptr;
     const char* pass = strlen(MQTT_USER) ? MQTT_PASS : nullptr;
-    // Last Will: se o ESP32 cair, o broker publica online:false
-    if (mqtt.connect(clientId.c_str(), user, pass, topicoStatus, 1, true, "{\"online\":false}")) {
+    // Last Will: se o ESP32 cair, o broker publica online:false (com o token, senão o backend descarta)
+    if (mqtt.connect(clientId.c_str(), user, pass, topicoStatus, 1, true, mensagemLwt)) {
       mqtt.subscribe(topicoCmd, 1);
       mqtt.subscribe(topicoAlerta, 1);
       publicaStatus();
@@ -242,6 +242,8 @@ void setup() {
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS, 6);  // canal 6 acelera a conexão no Wokwi
+  snprintf(mensagemLwt, sizeof(mensagemLwt), "{\"online\":false,\"token\":\"%s\"}", DEVICE_TOKEN);
+  mqtt.setBufferSize(512);
   mqtt.setServer(MQTT_HOST, MQTT_PORT);
   mqtt.setCallback(aoReceber);
 }

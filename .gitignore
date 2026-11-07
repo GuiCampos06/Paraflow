@@ -9,3 +9,4 @@ build/
 .expo/
 .DS_Store
 coverage/
+.vscode

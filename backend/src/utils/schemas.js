@@ -21,6 +21,11 @@ export const registroSchema = z.object({
     .regex(/^[\w.]{3,20}$/, 'Use 3 a 20 caracteres: letras, números, _ ou ponto.'),
   email: z.string().trim().toLowerCase().email('Informe um e-mail válido.'),
   senha: senhaForte,
+  organizacao: z.string().trim().min(2, 'Informe o nome da empresa.').max(80, 'Nome da empresa muito longo.'),
+});
+
+export const dispositivoCriarSchema = z.object({
+  nome: z.string().trim().min(2, 'Dê um nome para a máquina.').max(40, 'Nome muito longo.'),
 });
 
 export const loginSchema = z.object({

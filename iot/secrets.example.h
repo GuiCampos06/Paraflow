@@ -10,6 +10,11 @@
 #define MQTT_USER ""
 #define MQTT_PASS ""
 
+// Identidade da máquina: gere em  Site → Configurações → Máquinas → Adicionar máquina.
+// O token aparece UMA vez e liga esta máquina à SUA organização. Não compartilhe.
+#define DEVICE_ID    "pf-00000000"
+#define DEVICE_TOKEN "00000000000000000000000000000000"
+
 // Precisa ser IGUAL ao MQTT_TOPIC_PREFIX do backend/.env.
 // Em broker público, use um prefixo único (ex.: "paraflow-turma3b-x9k2") para ninguém mexer no seu estoque.
 #define TOPIC_PREFIX "paraflow"

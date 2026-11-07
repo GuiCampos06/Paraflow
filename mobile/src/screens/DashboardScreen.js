@@ -62,6 +62,7 @@ export default function DashboardScreen() {
       <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={atualizando} onRefresh={puxar} tintColor={colors.ciano} />}>
         <Logo tamanho={26} />
         <Text style={styles.saudacao}>Olá, {usuario?.nome?.split(' ')[0]}</Text>
+        <Text style={[styles.suave, { textAlign: 'center' }]}>{usuario?.organizacao?.nome}</Text>
 
         <View style={styles.pilulas}>
           <Text style={[styles.pilula, tempoReal && styles.pilulaOn]}>{tempoReal ? '● Tempo real' : '○ Sem tempo real'}</Text>
@@ -69,6 +70,15 @@ export default function DashboardScreen() {
         </View>
 
         {!!erro && <Text style={styles.erro} accessibilityRole="alert">{erro}</Text>}
+
+        {estoque && !disp && (
+          <View style={styles.alerta}>
+            <Text style={styles.alertaTexto}>
+              <Text style={{ fontWeight: '700', color: colors.alerta }}>Nenhuma máquina vinculada. </Text>
+              Adicione uma pelo site, em Configurações → Máquinas.
+            </Text>
+          </View>
+        )}
 
         {estoque?.estoqueBaixo && (
           <View style={styles.alerta}>
@@ -82,7 +92,7 @@ export default function DashboardScreen() {
         <View style={styles.painel}>
           <View style={styles.linhaSwitch}>
             <Text style={styles.painelTitulo}>Separador {disp?.ligado ? 'ligado' : 'desligado'}</Text>
-            <Switch value={!!disp?.ligado} onValueChange={alternar} trackColor={{ true: colors.verde, false: colors.borda }} />
+            <Switch value={!!disp?.ligado} disabled={!disp} onValueChange={alternar} trackColor={{ true: colors.verde, false: colors.borda }} />
           </View>
         </View>
 
