@@ -24,7 +24,13 @@ export function iniciarSockets(httpServer) {
     }
   });
 
-  io.on('connection', (socket) => socket.join(sala(socket.data.usuario.organizacaoId)));
+  io.on('connection', (socket) => {
+    socket.join(sala(socket.data.usuario.organizacaoId));
+    socket.join(`user:${socket.data.usuario.id}`); // permite derrubar só as conexões de uma pessoa
+  });
+
+  // usuário removido da equipe: encerra as conexões em tempo real dele
+  bus.on('usuario:removido', ({ usuarioId }) => io.in(`user:${usuarioId}`).disconnectSockets(true));
 
   bus.on('estoque:atualizado', ({ organizacaoId, estoque, evento }) => {
     const alvo = io.to(sala(organizacaoId));

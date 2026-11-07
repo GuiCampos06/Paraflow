@@ -17,6 +17,9 @@ export default function AppLayout() {
             <NavLink to="/app/dashboard" className={({ isActive }) => (isActive ? 'ativo' : '')}>Dashboard</NavLink>
             <NavLink to="/app/historico" className={({ isActive }) => (isActive ? 'ativo' : '')}>Histórico</NavLink>
             <NavLink to="/app/configuracoes" className={({ isActive }) => (isActive ? 'ativo' : '')}>Configurações</NavLink>
+            {usuario.papel === 'dono' && (
+              <NavLink to="/app/equipe" className={({ isActive }) => (isActive ? 'ativo' : '')}>Equipe</NavLink>
+            )}
           </nav>
           <div className="app-usuario">
             <span>{usuario.nome}</span>

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
 import CampoSenha from '../components/CampoSenha.jsx';
 import ForcaSenha from '../components/ForcaSenha.jsx';
@@ -7,13 +7,18 @@ import { useAuth } from '../hooks/useAuth.jsx';
 import { api } from '../services/api.js';
 import { validadores } from '../utils/validacao.js';
 
-const VAZIO = { organizacao: '', nome: '', usuario: '', email: '', senha: '', confirmar: '' };
+const VAZIO = { organizacao: '', codigoConvite: '', nome: '', usuario: '', email: '', senha: '', confirmar: '' };
+const COMUNS = ['nome', 'usuario', 'email', 'senha', 'confirmar'];
 
 export default function Cadastro() {
   const { registrar } = useAuth();
   const navegar = useNavigate();
 
-  const [v, setV] = useState(VAZIO);
+  const [params] = useSearchParams(); // /cadastro?convite=XXXXX-XXXXX já abre no modo convite
+  const conviteDaUrl = params.get('convite') ?? '';
+  const [modo, setModo] = useState(conviteDaUrl ? 'convite' : 'empresa');
+  const [previa, setPrevia] = useState(null); // { organizacao, papel } do convite
+  const [v, setV] = useState({ ...VAZIO, codigoConvite: conviteDaUrl });
   const [tocados, setTocados] = useState({});
   const [msgs, setMsgs] = useState({}); // erros por campo (local ou do servidor)
   const [erro, setErro] = useState('');
@@ -50,11 +55,32 @@ export default function Cadastro() {
     if (validarLocal(k) && (k === 'usuario' || k === 'email')) checarDisponibilidade(k);
   }
 
+  // Pergunta ao SERVIDOR de qual empresa é o convite, sem consumi-lo
+  async function conferirConvite(codigo = v.codigoConvite) {
+    setPrevia(null);
+    if (validadores.codigoConvite(codigo)) return;
+    try {
+      setPrevia(await api(`/auth/convite/${encodeURIComponent(codigo.trim())}`));
+      setMsgs((m) => ({ ...m, codigoConvite: '' }));
+    } catch (err) {
+      setMsgs((m) => ({ ...m, codigoConvite: err.campos?.codigoConvite ?? err.message }));
+    }
+  }
+
+  useEffect(() => { if (conviteDaUrl) conferirConvite(conviteDaUrl); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function trocarModo(novo) {
+    setModo(novo);
+    setErro('');
+    setMsgs({});
+    setPrevia(null);
+  }
+
   async function enviar(e) {
     e.preventDefault();
     setErro('');
 
-    const chaves = Object.keys(VAZIO);
+    const chaves = [modo === 'empresa' ? 'organizacao' : 'codigoConvite', ...COMUNS];
     setTocados(Object.fromEntries(chaves.map((k) => [k, true])));
     const invalidos = chaves.filter((k) => !validarLocal(k));
     if (invalidos.length) return document.getElementById(invalidos[0])?.focus();
@@ -62,8 +88,8 @@ export default function Cadastro() {
     setEnviando(true);
     try {
       await registrar({
-        organizacao: v.organizacao.trim(), nome: v.nome.trim(), usuario: v.usuario.trim(),
-        email: v.email.trim(), senha: v.senha,
+        ...(modo === 'empresa' ? { organizacao: v.organizacao.trim() } : { codigoConvite: v.codigoConvite.trim() }),
+        nome: v.nome.trim(), usuario: v.usuario.trim(), email: v.email.trim(), senha: v.senha,
       });
       navegar('/login', { replace: true, state: { entrada: 'esquerda', cadastrado: true } });
     } catch (err) {
@@ -88,7 +114,19 @@ export default function Cadastro() {
       <form className="form form-cadastro" onSubmit={enviar} noValidate>
         <h2>Crie sua conta</h2>
 
-        {campoTexto('organizacao', 'Nome da empresa', { autoComplete: 'organization', maxLength: 80 })}
+        <div className="modos" role="tablist" aria-label="Tipo de cadastro">
+          <button type="button" role="tab" aria-selected={modo === 'empresa'} className={modo === 'empresa' ? 'ativo' : ''} onClick={() => trocarModo('empresa')}>Criar uma empresa</button>
+          <button type="button" role="tab" aria-selected={modo === 'convite'} className={modo === 'convite' ? 'ativo' : ''} onClick={() => trocarModo('convite')}>Tenho um convite</button>
+        </div>
+
+        {modo === 'empresa'
+          ? campoTexto('organizacao', 'Nome da empresa', { autoComplete: 'organization', maxLength: 80 })
+          : (
+            <>
+              {campoTexto('codigoConvite', 'Código de convite', { autoCapitalize: 'characters', spellCheck: false, maxLength: 20, onBlur: () => { aoSair('codigoConvite'); conferirConvite(); } })}
+              {previa && <small className="msg ok" role="status">Você vai entrar em <b>{previa.organizacao}</b> como {previa.papel}.</small>}
+            </>
+          )}
 
         <div className="linha">
           {campoTexto('nome', 'Nome completo', { autoComplete: 'name' })}

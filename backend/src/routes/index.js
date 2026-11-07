@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { autenticar } from '../middlewares/auth.js';
+import { autenticar, exigirDono } from '../middlewares/auth.js';
 import { bancoConectado } from '../config/db.js';
 import { mqttConectado } from '../services/mqtt.service.js';
 import authRoutes from './auth.routes.js';
@@ -7,6 +7,7 @@ import estoqueRoutes from './estoque.routes.js';
 import eventosRoutes from './eventos.routes.js';
 import configRoutes from './config.routes.js';
 import dispositivoRoutes from './dispositivo.routes.js';
+import equipeRoutes from './equipe.routes.js';
 
 const router = Router();
 
@@ -27,5 +28,6 @@ router.use('/estoque', autenticar, estoqueRoutes);
 router.use('/eventos', autenticar, eventosRoutes);
 router.use('/config', autenticar, configRoutes);
 router.use('/dispositivo', autenticar, dispositivoRoutes);
+router.use('/equipe', autenticar, exigirDono, equipeRoutes); // só o dono gerencia a equipe
 
 export default router;

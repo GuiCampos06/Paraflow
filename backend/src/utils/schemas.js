@@ -8,7 +8,7 @@ const senhaForte = z
   .regex(/[a-zA-ZÀ-ÿ]/, 'A senha precisa ter uma letra.')
   .regex(/\d/, 'A senha precisa ter um número.');
 
-export const registroSchema = z.object({
+const registroBase = z.object({
   nome: z
     .string()
     .trim()
@@ -21,8 +21,33 @@ export const registroSchema = z.object({
     .regex(/^[\w.]{3,20}$/, 'Use 3 a 20 caracteres: letras, números, _ ou ponto.'),
   email: z.string().trim().toLowerCase().email('Informe um e-mail válido.'),
   senha: senhaForte,
-  organizacao: z.string().trim().min(2, 'Informe o nome da empresa.').max(80, 'Nome da empresa muito longo.'),
 });
+
+export const registroSchema = registroBase
+  .extend({
+    // exatamente UM dos dois: cria empresa nova OU entra por convite
+    organizacao: z.string().trim().min(2, 'Informe o nome da empresa.').max(80, 'Nome da empresa muito longo.').optional(),
+    codigoConvite: z.string().trim().min(6, 'Informe o código de convite.').max(20, 'Código muito longo.').optional(),
+  })
+  .refine((d) => !!d.organizacao !== !!d.codigoConvite, {
+    message: 'Informe o nome da empresa OU um código de convite.',
+    path: ['organizacao'],
+  });
+
+export const conviteCriarSchema = z.object({
+  papel: z.enum(['operador', 'dono']).default('operador'),
+  dias: z.number().int().min(1).max(30).default(7),
+});
+
+export const membroCriarSchema = z.object({
+  nome: registroBase.shape.nome,
+  usuario: registroBase.shape.usuario,
+  email: registroBase.shape.email,
+  senha: registroBase.shape.senha,
+  papel: z.enum(['operador', 'dono']).default('operador'),
+});
+
+export const papelSchema = z.object({ papel: z.enum(['operador', 'dono']) });
 
 export const dispositivoCriarSchema = z.object({
   nome: z.string().trim().min(2, 'Dê um nome para a máquina.').max(40, 'Nome muito longo.'),

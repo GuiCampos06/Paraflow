@@ -8,7 +8,8 @@ Erros: `{ "erro": "texto", "codigo": "CODIGO", "campos": { "campo": "mensagem" }
 | Método | Rota | Acesso | Descrição |
 |---|---|---|---|
 | GET | `/health` | pública | Estado do banco e do MQTT |
-| POST | `/auth/register` | pública | `{organizacao, nome, usuario, email, senha}` → cria a organização; o usuário vira **dono**. Retorna `{token, usuario}` |
+| POST | `/auth/register` | pública | `{nome, usuario, email, senha}` + **um** destes: `organizacao` (cria a empresa; vira **dono**) ou `codigoConvite` (entra na empresa com o papel do convite). Retorna `{token, usuario}` |
+| GET | `/auth/convite/:codigo` | pública | `{organizacao, papel}`: mostra a empresa do convite sem consumi-lo |
 | POST | `/auth/login` | pública | `{identificador, senha}` (usuário **ou** e-mail) → `{token, usuario}` |
 | GET | `/auth/me` | token | Confirma a sessão no servidor |
 | GET | `/auth/disponibilidade?usuario=&email=` | pública | `{usuario: true, email: false}` (true = livre) |
@@ -23,6 +24,12 @@ Erros: `{ "erro": "texto", "codigo": "CODIGO", "campos": { "campo": "mensagem" }
 | POST | `/dispositivo/:id/token` | dono | Gera novo token (o antigo deixa de valer) |
 | DELETE | `/dispositivo/:id` | dono | Remove a máquina (o histórico fica) |
 | POST | `/dispositivo/comando` | token | `{ligado: true|false, deviceId?}` → 202 |
+| GET | `/equipe` | dono | `{membros, convites}` (convites pendentes, sem o código) |
+| POST | `/equipe/convites` | dono | `{papel?: operador\|dono, dias?: 1-30}` → `{convite, codigo}` (**código só aparece aqui**; uso único) |
+| DELETE | `/equipe/convites/:id` | dono | Revoga um convite pendente |
+| POST | `/equipe/membros` | dono | `{nome, usuario, email, senha, papel?}` cria usuário direto na organização |
+| PATCH | `/equipe/membros/:id` | dono | `{papel}` (a organização sempre mantém ao menos 1 dono) |
+| DELETE | `/equipe/membros/:id` | dono | Remove o usuário (perde a sessão e o WebSocket na hora; não pode remover a si mesmo) |
 
 ## WebSocket (Socket.IO)
 Conecte com `io(url, { auth: { token } })`. Cada conexão entra só na sala da sua organização. Eventos:
@@ -38,4 +45,3 @@ Toda mensagem do ESP32 inclui `"token"`. Sem `deviceId` + token válidos, o back
 | `<prefixo>/<id>/cmd` | backend → ESP32 (retain) | `{"ligado":false}` |
 | `<prefixo>/<id>/alerta` | backend → ESP32 (retain) | `{"estoqueBaixo":true}` |
 
-> Em broker público o token trafega em texto puro. Em produção use TLS e usuário/senha no broker.

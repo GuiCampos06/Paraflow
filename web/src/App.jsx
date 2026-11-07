@@ -7,6 +7,14 @@ import Cadastro from './pages/Cadastro.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Historico from './pages/Historico.jsx';
 import Configuracoes from './pages/Configuracoes.jsx';
+import Equipe from './pages/Equipe.jsx';
+import { useAuth } from './hooks/useAuth.jsx';
+
+/** Só o dono entra; a API também recusa (403) mesmo que alguém force a URL. */
+function SomenteDono({ children }) {
+  const { usuario } = useAuth();
+  return usuario?.papel === 'dono' ? children : <Navigate to="/app/dashboard" replace />;
+}
 
 export default function App() {
   return (
@@ -25,6 +33,7 @@ export default function App() {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="historico" element={<Historico />} />
           <Route path="configuracoes" element={<Configuracoes />} />
+          <Route path="equipe" element={<SomenteDono><Equipe /></SomenteDono>} />
         </Route>
       </Route>
 

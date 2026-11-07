@@ -4,6 +4,7 @@ import { env } from '../config/env.js';
 import { Usuario } from '../models/Usuario.js';
 import { Organizacao } from '../models/Organizacao.js';
 import { AppError } from '../utils/AppError.js';
+import { consumirConvite, liberarConvite, marcarUsadoPor } from './convite.service.js';
 
 const SALT_ROUNDS = 12;
 // hash fictício: evita diferença de tempo entre "usuário não existe" e "senha errada"
@@ -23,7 +24,8 @@ export const paraPublico = (u, org) => ({
   organizacao: { id: org._id.toString(), nome: org.nome },
 });
 
-export async function registrar({ nome, usuario, email, senha, organizacao }) {
+/** 409 se usuário ou e-mail já existem. */
+async function garantirLivre(usuario, email) {
   const [porUsuario, porEmail] = await Promise.all([
     Usuario.exists({ usuario }),
     Usuario.exists({ email }),
@@ -37,10 +39,40 @@ export async function registrar({ nome, usuario, email, senha, organizacao }) {
       },
     });
   }
+}
 
+/** Cria um usuário já dentro de uma organização (usado pelo dono em Equipe → criar usuário). */
+export async function criarUsuario({ nome, usuario, email, senha, organizacaoId, papel = 'operador' }) {
+  await garantirLivre(usuario, email);
+  const senhaHash = await bcrypt.hash(senha, SALT_ROUNDS);
+  return Usuario.create({ nome, usuario, email, senhaHash, organizacaoId, papel });
+}
+
+/**
+ * Cadastro público. Dois caminhos:
+ *  - `organizacao`: cria a empresa e o usuário vira dono;
+ *  - `codigoConvite`: entra numa empresa existente com o papel definido no convite.
+ */
+export async function registrar({ nome, usuario, email, senha, organizacao, codigoConvite }) {
+  await garantirLivre(usuario, email);
   const senhaHash = await bcrypt.hash(senha, SALT_ROUNDS);
 
-  // quem cria a organização é o dono dela
+  if (codigoConvite) {
+    const convite = await consumirConvite(codigoConvite);
+    try {
+      const org = await Organizacao.findById(convite.organizacaoId);
+      if (!org) throw new AppError(400, 'Esta organização não existe mais.', { codigo: 'CONVITE_INVALIDO' });
+      const novo = await Usuario.create({
+        nome, usuario, email, senhaHash, organizacaoId: org._id, papel: convite.papel,
+      });
+      await marcarUsadoPor(convite._id, novo._id);
+      return { token: assinar(novo), usuario: paraPublico(novo, org) };
+    } catch (e) {
+      await liberarConvite(convite._id); // o convite não se perde se o cadastro falhar
+      throw e;
+    }
+  }
+
   const org = await Organizacao.create({ nome: organizacao });
   let novo;
   try {

@@ -11,6 +11,8 @@
 - **Estoque derivado dos eventos** (agregação no MongoDB): sem contador duplicado, reiniciar o ESP32 não perde nada, e o histórico por dia vem de graça.
 - **Barramento interno** (`utils/bus.js`): `estoque.service` e `dispositivo.service` emitem eventos; `sockets/` e `mqtt.service` só ouvem. Evita dependência circular.
 - **Multi-organização**: `Usuario`, `Dispositivo`, `Evento` e `Config` guardam `organizacaoId`. O id vem do usuário autenticado (ou da máquina autenticada no MQTT), nunca do corpo do pedido. O WebSocket usa uma sala por organização.
+- **Papéis** (`dono` / `operador`): o papel é lido do banco a cada requisição, então promover, rebaixar ou remover vale imediatamente, sem relogar. Operador consulta e liga/desliga a máquina; dono também gerencia máquinas, regras e equipe.
+- **Convites**: código aleatório de uso único, validade configurável, guardado só em hash e consumido de forma atômica (duas pessoas não usam o mesmo código; se o cadastro falha, o convite volta).
 - **Máquina = deviceId + token**: o servidor gera ambos ao vincular a máquina; só o hash SHA-256 do token fica no banco.
 - **Servidor decide a sessão**: `GET /auth/me` e o middleware `autenticar` conferem o JWT *e* a existência do usuário no banco; o WebSocket faz o mesmo no handshake.
 - **Alerta de estoque baixo** só dispara depois da primeira peça contada, e o limite vem da coleção `configs` (não está fixo no firmware).
@@ -20,6 +22,7 @@
 |---|---|
 | `organizacoes` | nome |
 | `usuarios` | organizacaoId, nome, usuario (único), email (único), senhaHash, papel (`dono`/`operador`) |
+| `convites` | organizacaoId, codigoHash (único), papel, expiraEm, usadoEm, usadoPor |
 | `dispositivos` | organizacaoId, deviceId (único), nome, tokenHash, ligado, online, ultimoContato |
 | `eventos` | organizacaoId, deviceId, comprimentoMm, bitola, peso, valido, ocorridoEm |
 | `configs` | organizacaoId (único), limiteBaixo, kDesvios, comprimentosMm, bitolas, tabelaPeso |

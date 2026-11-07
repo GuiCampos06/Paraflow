@@ -103,3 +103,8 @@
   .form input[type="text"], .form input[type="email"], .form input[type="password"] { height: 54px; }
   .form .btn { height: 54px; font-size: 1rem; }
 }
+
+/* Alternar entre "criar empresa" e "tenho um convite" */
+.modos { display: flex; gap: 6px; justify-content: center; padding: 4px; border: 1px solid var(--borda); border-radius: 999px; }
+.modos button { flex: 1; height: 38px; border: 0; border-radius: 999px; background: transparent; color: var(--suave); font: inherit; font-size: .9rem; cursor: pointer; transition: background .2s, color .2s; }
+.modos button.ativo { background: rgba(0,229,255,.14); color: var(--ciano); font-weight: 600; }

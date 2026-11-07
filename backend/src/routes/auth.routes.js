@@ -5,6 +5,7 @@ import { validar } from '../middlewares/validate.js';
 import { autenticar } from '../middlewares/auth.js';
 import { registroSchema, loginSchema, disponibilidadeSchema } from '../utils/schemas.js';
 import * as auth from '../services/auth.service.js';
+import { previaConvite } from '../services/convite.service.js';
 
 const router = Router();
 
@@ -30,6 +31,11 @@ router.get('/me', autenticar, (req, res) => res.json({ usuario: req.usuario }));
 // Checagem em tempo real de usuário/e-mail livres no cadastro.
 router.get('/disponibilidade', limitador, validar(disponibilidadeSchema, 'query'), asyncHandler(async (req, res) => {
   res.json(await auth.disponibilidade(req.dados));
+}));
+
+// Mostra de qual empresa é o convite antes de cadastrar (não consome o código).
+router.get('/convite/:codigo', limitador, asyncHandler(async (req, res) => {
+  res.json(await previaConvite(req.params.codigo));
 }));
 
 export default router;

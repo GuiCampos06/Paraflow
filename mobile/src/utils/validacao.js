@@ -7,6 +7,7 @@ export const requisitosSenha = {
 export const senhaValida = (v) => Object.values(requisitosSenha).every((fn) => fn(v));
 
 export const validadores = {
+  codigoConvite: (v) => (v.replace(/[^a-zA-Z0-9]/g, '').length >= 6 ? '' : 'Informe o código de convite.'),
   organizacao: (v) => (v.trim().length >= 2 && v.trim().length <= 80 ? '' : 'Informe o nome da empresa.'),
   nome: (v) => (v.trim().split(/\s+/).filter(Boolean).length >= 2 ? '' : 'Informe nome e sobrenome.'),
   usuario: (v) => (/^[\w.]{3,20}$/.test(v.trim()) ? '' : 'Use 3 a 20 caracteres: letras, números, _ ou ponto.'),

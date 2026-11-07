@@ -63,6 +63,7 @@ npm run start
 ```
 
 > Cada cadastro cria uma **organização** (a empresa) e o usuário vira o **dono** dela. Cada organização só vê os próprios dados.
+> O dono traz a equipe em **Equipe**: gera um código de convite (a pessoa escolhe "Tenho um convite" no cadastro) ou cria o usuário direto. Papéis: **dono** (máquinas, regras, equipe) e **operador** (consulta e liga/desliga).
 >
 > **Já tinha rodado a versão anterior?** Os dados antigos não têm organização. Apague o banco antes: `npm run resetar-banco -w backend -- --sim` (ou apague as coleções no Compass/Atlas).
 
@@ -90,7 +91,8 @@ As rotas **reais** ficam no backend, em `backend/src/routes/` (montadas em `/api
 |---|---|
 | `/` | Pública (landing) |
 | `/login`, `/cadastro` | Só sem sessão (com sessão vai ao dashboard) |
-| `/app/dashboard`, `/app/historico` | Só com sessão confirmada pelo servidor |
+| `/app/dashboard`, `/app/historico`, `/app/configuracoes` | Só com sessão confirmada pelo servidor |
+| `/app/equipe` | Só o dono (a API também responde 403 aos demais) |
 
 ## Fluxo de trabalho no GitHub
 - Branches: `main` (estável), `develop`, `feat/backend-...`, `feat/web-...`, `feat/mobile-...`, `feat/iot-...`
