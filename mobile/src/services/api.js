@@ -45,7 +45,7 @@ export async function api(caminho, { metodo = 'GET', corpo, query } = {}) {
       body: corpo ? JSON.stringify(corpo) : undefined,
     });
   } catch {
-    throw new ApiError(0, { erro: 'Sem conexão com o servidor. Confira EXPO_PUBLIC_API_URL e a rede.' });
+     throw new ApiError(0, { erro: `Sem conexão com ${API_URL} (${e.message}). Confira o IP, o backend e o Wi-Fi.` });
   }
   const json = await resp.json().catch(() => null);
   if (!resp.ok) {
