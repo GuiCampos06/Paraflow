@@ -1,55 +1,77 @@
 # API
 
-Base: `http://localhost:3333/api`. Rotas protegidas exigem `Authorization: Bearer <jwt>`.
-Erros: `{ "erro": "texto", "codigo": "CODIGO", "campos": { "campo": "mensagem" } }`.
+Base: `http://localhost:3333/api`. As rotas protegidas pedem `Authorization: Bearer <token>`.
+Erros voltam como `{ "erro": "texto", "codigo": "CODIGO", "campos": { "campo": "mensagem" } }`.
 
-**Multi-organização:** cada usuário pertence a UMA organização e só enxerga os dados dela (estoque, eventos, config, máquinas). O `organizacaoId` vem sempre do usuário autenticado, nunca do pedido.
+Cada usuário só enxerga os dados da própria empresa.
 
-| Método | Rota | Acesso | Descrição |
+## Conta
+
+| Método | Rota | Acesso | O que faz |
 |---|---|---|---|
-| GET | `/health` | pública | Estado do banco e do MQTT |
-| POST | `/auth/register` | pública | `{nome, usuario, email, senha}` + **um** destes: `organizacao` (cria a empresa; vira **dono**) ou `codigoConvite` (entra na empresa com o papel do convite). Retorna `{token, usuario}` |
-| GET | `/auth/convite/:codigo` | pública | `{organizacao, papel}`: mostra a empresa do convite sem consumi-lo |
-| POST | `/auth/login` | pública | `{identificador, senha}` (usuário **ou** e-mail) → `{token, usuario}` |
-| GET | `/auth/me` | token | Confirma a sessão no servidor |
-| GET | `/auth/disponibilidade?usuario=&email=` | pública | `{usuario: true, email: false}` (true = livre) |
-| GET | `/estoque` | token | Estoque **atual** (entradas − pedidos não cancelados): itens comprimento×bitola (`quantidade`, `entradas`, `retirados`), totais, alertas e `menorEstoque`/`menores` (tipos com menos peças, só entre os já contados) |
-| GET | `/estoque/estatisticas` | token | `hoje`, `mediaPorDia` (nos dias com contagem), `mediaUltimos7Dias` (total ÷ 7), `ultimos7Dias[]`, `taxaRejeicao`, `totalRetirado`, `pedidosAbertos` (dias em fuso de São Paulo) |
-| GET | `/pedidos?status=&pagina=&limite=` | token | Pedidos da organização |
-| POST | `/pedidos` | token | `{bitola, comprimentoMm, quantidade, deviceId?}` → as peças saem do estoque na hora (409 se não houver); a máquina é avisada |
-| POST | `/pedidos/:id/retirar` | token | Confirma a retirada (dono ou quem pediu) |
-| POST | `/pedidos/:id/cancelar` | token | Cancela e devolve as peças ao estoque (dono ou quem pediu) |
-| GET | `/eventos?de=&ate=&bitola=&valido=&pagina=&limite=` | token | Peças processadas (paginado) |
-| GET | `/eventos/resumo?de=&ate=` | token | Peças válidas por dia e bitola |
-| POST | `/eventos` | token | Simula uma peça na 1ª máquina da organização (só com `ALLOW_SIMULATION=true`) |
-| GET | `/config` | token | Regras da organização |
-| PUT | `/config` | dono | `{limiteBaixo?, kDesvios?, tabelaPeso?}` |
-| GET | `/dispositivo` | token | Máquinas da organização e status |
-| POST | `/dispositivo` | dono | `{nome}` → vincula máquina. Retorna `{dispositivo, token}` (**token só aparece aqui**) |
-| POST | `/dispositivo/:id/token` | dono | Gera novo token (o antigo deixa de valer) |
-| DELETE | `/dispositivo/:id` | dono | Remove a máquina (o histórico fica) |
-| POST | `/dispositivo/comando` | token | `{ligado?: true\|false, tara?: true, deviceId?}` → 202. `tara` zera a balança |
-| GET | `/equipe` | dono | `{membros, convites}` (convites pendentes, sem o código) |
-| POST | `/equipe/convites` | dono | `{papel?: operador\|dono, dias?: 1-30}` → `{convite, codigo}` (**código só aparece aqui**; uso único) |
-| DELETE | `/equipe/convites/:id` | dono | Revoga um convite pendente |
-| POST | `/equipe/membros` | dono | `{nome, usuario, email, senha, papel?}` cria usuário direto na organização |
-| PATCH | `/equipe/membros/:id` | dono | `{papel}` (a organização sempre mantém ao menos 1 dono) |
-| DELETE | `/equipe/membros/:id` | dono | Remove o usuário (perde a sessão e o WebSocket na hora; não pode remover a si mesmo) |
+| GET | `/health` | público | estado do banco e do MQTT |
+| POST | `/auth/register` | público | cadastro com `organizacao` (cria a empresa) ou `codigoConvite` (entra numa empresa) |
+| POST | `/auth/login` | público | `{identificador, senha}` (usuário ou e-mail) |
+| GET | `/auth/me` | logado | confirma a sessão |
+| GET | `/auth/disponibilidade?usuario=&email=` | público | diz se usuário e e-mail estão livres |
+| GET | `/auth/convite/:codigo` | público | mostra a empresa do convite sem usar o código |
 
-## WebSocket (Socket.IO)
-Conecte com `io(url, { auth: { token } })`. Cada conexão entra só na sala da sua organização. Eventos:
-`estoque:atualizado`, `alerta:estoque-baixo`, `evento:novo`, `dispositivo:status`, `dispositivo:telemetria` (peso ao vivo, ~1x/s, não é gravado) e `pedido:atualizado`.
+## Estoque e histórico
 
-## MQTT (`<prefixo>` = `MQTT_TOPIC_PREFIX`; `<id>` = `deviceId` gerado pelo servidor)
-Toda mensagem do ESP32 inclui `"token"`. Sem `deviceId` + token válidos, o backend descarta.
+| Método | Rota | Acesso | O que faz |
+|---|---|---|---|
+| GET | `/estoque` | logado | estoque atual por tipo, totais, alertas e tipos com menos peças |
+| GET | `/estoque/estatisticas` | logado | contadas hoje, médias, últimos 14 dias, rejeição e retiradas |
+| GET | `/eventos` | logado | peças processadas, com filtros e paginação |
+| GET | `/eventos/resumo` | logado | peças válidas por dia e bitola |
+| POST | `/eventos` | logado | simula uma peça (só com `ALLOW_SIMULATION=true`) |
 
-| Tópico | Sentido | Payload |
+## Pedidos
+
+| Método | Rota | Acesso | O que faz |
+|---|---|---|---|
+| GET | `/pedidos` | logado | lista os pedidos da empresa |
+| GET | `/pedidos/previsao` | logado | previsão de consumo dos próximos 7 dias e quando cada tipo deve acabar |
+| POST | `/pedidos` | logado | `{bitola, comprimentoMm, quantidade}`; responde 409 se não houver estoque |
+| POST | `/pedidos/:id/retirar` | dono ou quem pediu | confirma a retirada |
+| POST | `/pedidos/:id/cancelar` | dono ou quem pediu | cancela e devolve as peças |
+
+## Máquinas e regras
+
+| Método | Rota | Acesso | O que faz |
+|---|---|---|---|
+| GET | `/dispositivo` | logado | máquinas e status |
+| POST | `/dispositivo` | dono | vincula uma máquina; o token aparece só nessa resposta |
+| POST | `/dispositivo/:id/token` | dono | gera um token novo |
+| DELETE | `/dispositivo/:id` | dono | remove a máquina (o histórico fica) |
+| POST | `/dispositivo/comando` | logado | `{ligado}` ou `{tara: true}` |
+| GET | `/config` | logado | regras da empresa |
+| PUT | `/config` | dono | altera `limiteBaixo` e a tabela de peso |
+
+## Equipe (só o dono)
+
+| Método | Rota | O que faz |
 |---|---|---|
-| `<prefixo>/<id>/evento` | ESP32 → backend | `{"comp":10,"bitola":"M3","peso":1.07,"valido":true,"token":"..."}` |
-| `<prefixo>/<id>/status` | ESP32 → backend (retain + LWT) | `{"online":true,"ligado":true,"token":"..."}` |
-| `<prefixo>/<id>/telemetria` | ESP32 → backend (~1x/s, sem retain) | `{"peso":1.07,"estavel":true,"rssi":-60,"token":"..."}` |
-| `<prefixo>/<id>/cmd` | backend → ESP32 | `{"ligado":false}` (retain) ou `{"tara":true}` (**sem** retain) |
-| `<prefixo>/<id>/pedido` | backend → ESP32 (sem retain) | `{"id":"...","comp":10,"bitola":"M3","qtd":20}` |
-| `<prefixo>/<id>/alerta` | backend → ESP32 (retain) | `{"estoqueBaixo":true}` |
+| GET | `/equipe` | membros e convites pendentes |
+| POST | `/equipe/convites` | cria um convite; o código aparece só nessa resposta |
+| DELETE | `/equipe/convites/:id` | revoga um convite |
+| POST | `/equipe/membros` | cria um usuário direto |
+| PATCH | `/equipe/membros/:id` | muda o papel |
+| DELETE | `/equipe/membros/:id` | remove o usuário |
 
-> Em broker público o token trafega em texto puro. Em produção use TLS e usuário/senha no broker.
+## WebSocket
+
+Conecta com `io(url, { auth: { token } })`. Eventos: `estoque:atualizado`, `alerta:estoque-baixo`, `evento:novo`, `dispositivo:status`, `dispositivo:telemetria` e `pedido:atualizado`.
+
+## MQTT
+
+`<prefixo>` é o `MQTT_TOPIC_PREFIX` e `<id>` é o `deviceId` da máquina. Toda mensagem do ESP32 leva o campo `token`.
+
+| Tópico | Quem envia | Conteúdo |
+|---|---|---|
+| `<prefixo>/<id>/evento` | ESP32 | `{"comp":10,"bitola":"M3","peso":1.07,"valido":true,"token":"..."}` |
+| `<prefixo>/<id>/status` | ESP32 | `{"online":true,"ligado":true,"token":"..."}` |
+| `<prefixo>/<id>/telemetria` | ESP32 | `{"peso":1.07,"estavel":true,"rssi":-60,"token":"..."}` |
+| `<prefixo>/<id>/cmd` | backend | `{"ligado":false}` ou `{"tara":true}` |
+| `<prefixo>/<id>/pedido` | backend | `{"id":"...","comp":10,"bitola":"M3","qtd":20}` |
+| `<prefixo>/<id>/alerta` | backend | `{"estoqueBaixo":true}` |

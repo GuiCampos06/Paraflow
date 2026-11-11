@@ -2,16 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, lerToken } from '../services/api.js';
 import { conectarSocket } from '../services/socket.js';
 
-/**
- * Carrega estoque, estatísticas e máquina do servidor e se mantém atualizado via WebSocket:
- *  - estoque:atualizado        → novo estoque (a cada peça contada / pedido)
- *  - evento:novo               → feed das últimas peças
- *  - dispositivo:telemetria    → peso da balança ao vivo (~1x/s)
- *  - dispositivo:status        → online / ligado
- */
+// carrega estoque, estatísticas e máquina, e atualiza em tempo real pelo WebSocket
 export function useEstoqueRealtime() {
   const [estoque, setEstoque] = useState(null);
   const [estatisticas, setEstatisticas] = useState(null);
+  const [previsao, setPrevisao] = useState(null);
   const [dispositivo, setDispositivo] = useState(null);
   const [telemetria, setTelemetria] = useState(null); // { peso, estavel, rssi, recebidoEm }
   const [ultimas, setUltimas] = useState([]);
@@ -19,20 +14,21 @@ export function useEstoqueRealtime() {
   const [erro, setErro] = useState('');
   const timer = useRef(null);
 
-  const carregarEstatisticas = useCallback(
-    () => api('/estoque/estatisticas').then(setEstatisticas).catch(() => {}),
-    []
-  );
+  const carregarEstatisticas = useCallback(() => {
+    api('/estoque/estatisticas').then(setEstatisticas).catch(() => {});
+    api('/pedidos/previsao').then(setPrevisao).catch(() => {});
+  }, []);
 
   useEffect(() => {
     let ativo = true;
 
-    Promise.all([api('/estoque'), api('/dispositivo'), api('/estoque/estatisticas'), api('/eventos', { query: { limite: 8 } })])
-      .then(([e, d, s, ev]) => {
+    Promise.all([api('/estoque'), api('/dispositivo'), api('/estoque/estatisticas'), api('/eventos', { query: { limite: 8 } }), api('/pedidos/previsao')])
+      .then(([e, d, s, ev, pv]) => {
         if (!ativo) return;
         setEstoque(e);
         setDispositivo(d.dispositivos[0] ?? null);
         setEstatisticas(s);
+        setPrevisao(pv);
         setUltimas(ev.itens.map((x) => ({ id: x._id, comprimentoMm: x.comprimentoMm, bitola: x.bitola, peso: x.peso, valido: x.valido, ocorridoEm: x.ocorridoEm })));
       })
       .catch((e) => ativo && setErro(e.message));
@@ -43,7 +39,7 @@ export function useEstoqueRealtime() {
     socket.on('connect_error', () => setConectado(false));
     socket.on('estoque:atualizado', (e) => {
       setEstoque(e);
-      // várias peças seguidas → recalcula as estatísticas uma vez só
+      // várias peças seguidas -> recalcula as estatísticas uma vez só
       clearTimeout(timer.current);
       timer.current = setTimeout(carregarEstatisticas, 600);
     });
@@ -60,5 +56,5 @@ export function useEstoqueRealtime() {
     };
   }, [carregarEstatisticas]);
 
-  return { estoque, estatisticas, dispositivo, telemetria, ultimas, conectado, erro };
+  return { estoque, estatisticas, previsao, dispositivo, telemetria, ultimas, conectado, erro };
 }

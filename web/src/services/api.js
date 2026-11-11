@@ -1,4 +1,4 @@
-// Cliente HTTP único. Em dev o Vite faz proxy de /api → backend (veja vite.config.js).
+// cliente HTTP único. Em dev o Vite faz proxy de /api -> backend (veja vite.config.js).
 const BASE = `${import.meta.env.VITE_API_URL ?? ''}/api`;
 const CHAVE = 'paraflow:token';
 

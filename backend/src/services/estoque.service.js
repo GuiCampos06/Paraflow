@@ -4,15 +4,12 @@ import { Pedido } from '../models/Pedido.js';
 import { bus } from '../utils/bus.js';
 import { obterConfig } from './config.service.js';
 
-// Em aggregate() o MongoDB NÃO converte string → ObjectId sozinho (find() converte).
+// em aggregate() o MongoDB não converte string -> ObjectId sozinho (find() converte).
 const oid = (id) => new mongoose.Types.ObjectId(String(id));
 const TZ = 'America/Sao_Paulo';
 const diaSP = (data) => data.toLocaleDateString('en-CA', { timeZone: TZ }); // "2026-11-07"
 
-/**
- * Estoque atual = peças válidas contadas (entradas) − peças de pedidos não cancelados (retiradas).
- * O MongoDB é a fonte da verdade: reiniciar o ESP32 não zera nada.
- */
+// estoque = peças válidas contadas menos as de pedidos não cancelados
 export async function obterEstoque(organizacaoId) {
   const cfg = await obterConfig(organizacaoId);
   const org = oid(organizacaoId);
@@ -47,12 +44,11 @@ export async function obterEstoque(organizacaoId) {
   }
 
   const total = Object.values(totaisPorBitola).reduce((a, b) => a + b, 0);
-  // Só alerta depois que o sistema começou a contar (evita alarme com tudo zerado).
+  // só alerta depois que o sistema começou a contar (evita alarme com tudo zerado).
   const bitolasBaixas =
     totalEntradas === 0 ? [] : cfg.bitolas.filter((b) => totaisPorBitola[b] < cfg.limiteBaixo);
 
-  // "Qual parafuso há menos": só entre os tipos que já chegaram ao estoque alguma vez
-  // (um tipo que nunca foi contado não é "falta", é um tipo que a empresa não usa).
+  // "menos estoque" só considera tipos que já foram contados alguma vez
   const menores = itens
     .filter((i) => i.entradas > 0)
     .sort((a, b) => a.quantidade - b.quantidade || a.comprimentoMm - b.comprimentoMm)
@@ -74,14 +70,11 @@ export async function obterEstoque(organizacaoId) {
   };
 }
 
-/**
- * Números do dashboard: contagem de hoje, médias por dia, últimos 7 dias, rejeição e pedidos.
- * Os dias seguem o fuso de São Paulo.
- */
+// números do dashboard (os dias seguem o fuso de São Paulo)
 export async function obterEstatisticas(organizacaoId) {
   const org = oid(organizacaoId);
 
-  const [porDia, porValidade, retiradas, abertos] = await Promise.all([
+  const [porDia, porValidade, retiradas, abertos, retiradosDia] = await Promise.all([
     Evento.aggregate([
       { $match: { organizacaoId: org, valido: true } },
       { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$ocorridoEm', timezone: TZ } }, total: { $sum: 1 } } },
@@ -95,6 +88,10 @@ export async function obterEstatisticas(organizacaoId) {
       { $group: { _id: null, total: { $sum: '$quantidade' } } },
     ]),
     Pedido.countDocuments({ organizacaoId: org, status: 'aberto' }),
+    Pedido.aggregate([
+      { $match: { organizacaoId: org, status: { $ne: 'cancelado' } } },
+      { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: TZ } }, total: { $sum: '$quantidade' } } },
+    ]),
   ]);
 
   const mapa = new Map(porDia.map((d) => [d._id, d.total]));
@@ -102,10 +99,12 @@ export async function obterEstatisticas(organizacaoId) {
   const diasAtivos = porDia.length;
 
   const agora = Date.now();
-  const ultimos7Dias = Array.from({ length: 7 }, (_, i) => {
-    const dia = diaSP(new Date(agora - (6 - i) * 24 * 60 * 60 * 1000));
-    return { dia, total: mapa.get(dia) ?? 0 };
+  const mapaRetirados = new Map(retiradosDia.map((d) => [d._id, d.total]));
+  const ultimos14Dias = Array.from({ length: 14 }, (_, i) => {
+    const dia = diaSP(new Date(agora - (13 - i) * 24 * 60 * 60 * 1000));
+    return { dia, total: mapa.get(dia) ?? 0, retirados: mapaRetirados.get(dia) ?? 0 };
   });
+  const ultimos7Dias = ultimos14Dias.slice(-7).map(({ dia, total }) => ({ dia, total }));
   const soma7 = ultimos7Dias.reduce((s, d) => s + d.total, 0);
 
   const validas = porValidade.find((x) => x._id === true)?.total ?? 0;
@@ -119,6 +118,7 @@ export async function obterEstatisticas(organizacaoId) {
     mediaPorDia: diasAtivos ? arred(totalContado / diasAtivos) : 0, // média nos dias em que houve contagem
     mediaUltimos7Dias: arred(soma7 / 7), // total dos últimos 7 dias ÷ 7 (dias parados contam como 0)
     ultimos7Dias,
+    ultimos14Dias,
     pecasRejeitadas: rejeitadas,
     taxaRejeicao: validas + rejeitadas ? arred((rejeitadas / (validas + rejeitadas)) * 100) : 0,
     totalRetirado: retiradas[0]?.total ?? 0,

@@ -20,7 +20,7 @@ const schema = z.object({
 const resultado = schema.safeParse(process.env);
 
 if (!resultado.success) {
-  console.error('❌ Variáveis de ambiente inválidas:');
+  console.error('[config] variáveis de ambiente inválidas:');
   for (const i of resultado.error.issues) console.error(`  - ${i.path.join('.')}: ${i.message}`);
   process.exit(1);
 }

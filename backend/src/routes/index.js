@@ -12,7 +12,7 @@ import pedidosRoutes from './pedidos.routes.js';
 
 const router = Router();
 
-// ---- públicas ----
+// públicas
 router.get('/health', (_req, res) => {
   const banco = bancoConectado();
   res.status(banco ? 200 : 503).json({
@@ -24,7 +24,7 @@ router.get('/health', (_req, res) => {
 });
 router.use('/auth', authRoutes);
 
-// ---- protegidas: o servidor valida o token a cada requisição ----
+// protegidas: o servidor valida o token a cada requisição
 router.use('/estoque', autenticar, estoqueRoutes);
 router.use('/eventos', autenticar, eventosRoutes);
 router.use('/config', autenticar, configRoutes);

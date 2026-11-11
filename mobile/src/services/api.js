@@ -11,7 +11,7 @@ export class ApiError extends Error {
   }
 }
 
-// Token em memória (sempre) + SecureStore (só quando "lembrar de mim").
+// o token fica em memória e, se marcar "lembrar de mim", também no SecureStore
 let tokenMemoria = null;
 export const lerTokenMemoria = () => tokenMemoria;
 

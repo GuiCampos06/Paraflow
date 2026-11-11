@@ -112,7 +112,7 @@ export default function Pedidos() {
           )}
           <p className="msg-app" style={{ marginTop: 10 }}>
             Disponível: <b>{disponivel.toLocaleString('pt-BR')}</b> peça(s) de {form.bitola} × {form.comprimentoMm} mm
-            {disponivel === 0 && ' — sem estoque deste tipo'}
+            {disponivel === 0 && ' (sem estoque deste tipo)'}
           </p>
           {erros.quantidade && <p className="msg-app erro" role="alert">{erros.quantidade}</p>}
         </section>
@@ -122,7 +122,7 @@ export default function Pedidos() {
           {!lista ? <p className="vazio">Carregando...</p> : lista.itens.length === 0 ? (
             <p className="vazio">Nenhum pedido ainda.</p>
           ) : (
-            <div className="tabela-wrap">
+            <div className="tabela-wrap tabela-rolagem">
               <table className="tabela">
                 <thead><tr><th>Quando</th><th>Quem</th><th>Parafuso</th><th>Qtd</th><th>Situação</th><th /></tr></thead>
                 <tbody>

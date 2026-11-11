@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-/* ---------- Regras de senha (as mesmas do cadastro no web/mobile) ---------- */
+/* regras de senha (as mesmas do cadastro no web/mobile) */
 const senhaForte = z
   .string()
   .min(8, 'A senha precisa ter 8+ caracteres.')
@@ -63,7 +63,7 @@ export const disponibilidadeSchema = z.object({
   email: z.string().trim().toLowerCase().optional(),
 });
 
-/* ---------- Evento de peça (payload MQTT e POST /eventos) ---------- */
+/* evento de peça (payload MQTT e POST /eventos) */
 export const eventoSchema = z
   .object({
     comp: z.coerce.number().int().positive(),
