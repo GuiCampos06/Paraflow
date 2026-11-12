@@ -11,6 +11,8 @@
     "dev:web": "npm run dev -w web",
     "dev:mobile": "npm --prefix mobile run start",
     "simular": "npm run simular -w backend",
-    "build:web": "npm run build -w web"
+    "build:web": "npm run build -w web",
+    "build": "npm run build:web",
+    "start": "npm run start -w backend"
   }
 }

@@ -148,7 +148,8 @@ export default function DashboardScreen({ navigation }) {
           </View>
           <View style={styles.indicador}><Text style={styles.indRotulo}>Hoje</Text><Text style={styles.indValor}>{fmt(est?.hoje ?? 0)}</Text><Text style={styles.suave}>peças</Text></View>
           <View style={styles.indicador}><Text style={styles.indRotulo}>Média por dia</Text><Text style={styles.indValor}>{fmt1(est?.mediaPorDia ?? 0)}</Text><Text style={styles.suave}>{est?.diasAtivos ?? 0} dia(s)</Text></View>
-          <View style={styles.indicador}><Text style={styles.indRotulo}>Média 7 dias</Text><Text style={styles.indValor}>{fmt1(est?.mediaUltimos7Dias ?? 0)}</Text><Text style={styles.suave}>total ÷ 7</Text></View>
+          <View style={styles.indicador}><Text style={styles.indRotulo}>Média 14 dias</Text><Text style={styles.indValor}>{est ? fmt1(est.mediaUltimos14Dias) : '—'}</Text><Text style={styles.suave}>peças/dia · inclui dias zerados</Text></View>
+          <View style={styles.indicador}><Text style={styles.indRotulo}>Desvio padrão · 14 dias</Text><Text style={styles.indValor}>{est ? fmt1(est.desvioPadraoUltimos14Dias) : '—'}</Text><Text style={styles.suave}>peças/dia · inclui hoje em andamento</Text></View>
           <View style={styles.indicador}><Text style={styles.indRotulo}>Rejeitadas</Text><Text style={styles.indValor}>{fmt1(est?.taxaRejeicao ?? 0)}%</Text><Text style={styles.suave}>{fmt(est?.pecasRejeitadas ?? 0)} peças</Text></View>
         </View>
 

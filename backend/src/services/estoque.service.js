@@ -3,6 +3,8 @@ import { Evento } from '../models/Evento.js';
 import { Pedido } from '../models/Pedido.js';
 import { bus } from '../utils/bus.js';
 import { obterConfig } from './config.service.js';
+import { resumirContagens } from '../utils/estatisticas.js';
+import { AppError } from '../utils/AppError.js';
 
 // em aggregate() o MongoDB não converte string -> ObjectId sozinho (find() converte).
 const oid = (id) => new mongoose.Types.ObjectId(String(id));
@@ -85,7 +87,7 @@ export async function obterEstatisticas(organizacaoId) {
     ]),
     Pedido.aggregate([
       { $match: { organizacaoId: org, status: { $ne: 'cancelado' } } },
-      { $group: { _id: null, total: { $sum: '$quantidade' } } },
+      { $group: { _id: '$status', total: { $sum: '$quantidade' } } },
     ]),
     Pedido.countDocuments({ organizacaoId: org, status: 'aberto' }),
     Pedido.aggregate([
@@ -106,6 +108,8 @@ export async function obterEstatisticas(organizacaoId) {
   });
   const ultimos7Dias = ultimos14Dias.slice(-7).map(({ dia, total }) => ({ dia, total }));
   const soma7 = ultimos7Dias.reduce((s, d) => s + d.total, 0);
+  const resumo14 = resumirContagens(ultimos14Dias.map((d) => d.total));
+  const resumoAtivos = resumirContagens(porDia.map((d) => d.total));
 
   const validas = porValidade.find((x) => x._id === true)?.total ?? 0;
   const rejeitadas = porValidade.find((x) => x._id === false)?.total ?? 0;
@@ -116,12 +120,18 @@ export async function obterEstatisticas(organizacaoId) {
     totalContado,
     diasAtivos,
     mediaPorDia: diasAtivos ? arred(totalContado / diasAtivos) : 0, // média nos dias em que houve contagem
+    desvioPadraoPorDia: arred(resumoAtivos.desvioPadrao),
     mediaUltimos7Dias: arred(soma7 / 7), // total dos últimos 7 dias ÷ 7 (dias parados contam como 0)
+    mediaUltimos14Dias: arred(resumo14.media),
+    desvioPadraoUltimos14Dias: arred(resumo14.desvioPadrao),
+    contagemDiaria: { periodoDias: 14, tipoDesvio: 'populacional', incluiDiasSemContagem: true, incluiHoje: true, fuso: TZ },
     ultimos7Dias,
     ultimos14Dias,
     pecasRejeitadas: rejeitadas,
     taxaRejeicao: validas + rejeitadas ? arred((rejeitadas / (validas + rejeitadas)) * 100) : 0,
-    totalRetirado: retiradas[0]?.total ?? 0,
+    totalRetirado: retiradas.reduce((total, r) => total + r.total, 0), // compatibilidade: inclui reservas
+    totalReservado: retiradas.find((r) => r._id === 'aberto')?.total ?? 0,
+    totalRetiradoConfirmado: retiradas.find((r) => r._id === 'retirado')?.total ?? 0,
     pedidosAbertos: abertos,
   };
 }
@@ -129,6 +139,10 @@ export async function obterEstatisticas(organizacaoId) {
 /** Grava a peça (já com a organização da máquina) e notifica quem estiver ouvindo. */
 export async function registrarEvento({ dispositivo, comp, bitola, peso, valido }) {
   const organizacaoId = dispositivo.organizacaoId;
+  const cfg = await obterConfig(organizacaoId);
+  if (!cfg.comprimentosMm.includes(comp) || (valido && !cfg.bitolas.includes(bitola))) {
+    throw new AppError(400, 'A peça não corresponde ao catálogo desta empresa.', { codigo: 'CATALOGO_INVALIDO' });
+  }
   const evento = await Evento.create({
     organizacaoId,
     deviceId: dispositivo.deviceId,

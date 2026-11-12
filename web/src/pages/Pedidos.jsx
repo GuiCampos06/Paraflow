@@ -58,7 +58,7 @@ export default function Pedidos() {
         metodo: 'POST',
         corpo: { bitola: form.bitola, comprimentoMm: Number(form.comprimentoMm), quantidade: Number(form.quantidade) },
       });
-      aviso('Pedido feito! As peças já foram separadas do estoque.');
+      aviso('Pedido criado. As peças estão reservadas; confirme a retirada depois de recolhê-las.');
       setForm((f) => ({ ...f, quantidade: 1 }));
       carregar();
     } catch (err) {
@@ -83,7 +83,7 @@ export default function Pedidos() {
   return (
     <>
       <h1>Pedido de parafusos</h1>
-      <p className="app-sub">Escolha o tipo, o comprimento e a quantidade. As peças saem do estoque na hora e a máquina posiciona a gaveta certa.</p>
+      <p className="app-sub">Reserve as peças de que precisa. A máquina recebe um aviso para posicionar a gaveta; confirme a retirada após recolher os parafusos.</p>
 
       <div className="pilha">
         <section className="painel">
@@ -138,7 +138,7 @@ export default function Pedidos() {
                         <td>
                           {pode && (
                             <span className="acoes">
-                              <button className="btn btn-solido btn-sm" onClick={() => acao(p, 'retirar')}>Retirei</button>
+                              <button className="btn btn-solido btn-sm" onClick={() => acao(p, 'retirar')}>Confirmar retirada</button>
                               <button className="btn btn-perigo btn-sm" onClick={() => acao(p, 'cancelar')}>Cancelar</button>
                             </span>
                           )}

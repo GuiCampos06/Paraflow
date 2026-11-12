@@ -4,265 +4,549 @@ import { api } from '../services/api.js';
 import { useEstoqueRealtime } from '../hooks/useEstoqueRealtime.js';
 import { Colunas, Linha, Rosca } from '../components/Graficos.jsx';
 
-const fmt = (n) => n.toLocaleString('pt-BR');
-const fmt1 = (n) => n.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
-const fmtHora = (iso) => new Date(iso).toLocaleTimeString('pt-BR');
+const fmt = (n) => n.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+const fmtHora = (iso) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 const dm = (d) => `${d.slice(8)}/${d.slice(5, 7)}`;
 const tipo = (i) => `${i.bitola} × ${i.comprimentoMm} mm`;
-const ROTULO_STATUS = { ok: 'Ok', atencao: 'Atenção', critico: 'Crítico', esgotado: 'Esgotado', 'sem-consumo': 'Sem consumo' };
-const TENDENCIA = { alta: 'em alta', queda: 'em queda', estavel: 'estável' };
+const ROTULO_STATUS = {
+  ok: 'Ok',
+  atencao: 'Atenção',
+  critico: 'Crítico',
+  esgotado: 'Esgotado',
+  'sem-consumo': 'Sem consumo',
+};
+
+function Indicador({ rotulo, valor, detalhe, destaque = false }) {
+  return (
+    <div className={`stat${destaque ? ' principal' : ''}`}>
+      <span className="stat-rotulo">{rotulo}</span>
+      <b className="stat-valor">{valor}</b>
+      <span className="stat-detalhe">{detalhe}</span>
+    </div>
+  );
+}
 
 export default function Dashboard() {
-  const { estoque, estatisticas: est, previsao: prev, dispositivo, telemetria, ultimas, conectado, erro } = useEstoqueRealtime();
+  const {
+    estoque,
+    estatisticas: est,
+    previsao: prev,
+    maquinas,
+    dispositivo,
+    selecionarMaquina,
+    telemetria,
+    ultimas,
+    conectado,
+    carregando,
+    avisos,
+    atualizar,
+  } = useEstoqueRealtime();
   const [enviando, setEnviando] = useState(false);
-  const [aviso, setAviso] = useState('');
+  const [aviso, setAviso] = useState(null);
   const [, tick] = useState(0);
-
-  // atualiza o "há X s" da balança
   useEffect(() => {
     const t = setInterval(() => tick((n) => n + 1), 1000);
     return () => clearInterval(t);
   }, []);
 
-  async function comando(corpo, ok) {
-    setAviso('');
+  async function comando(corpo) {
+    setAviso(null);
     setEnviando(true);
     try {
-      await api('/dispositivo/comando', { metodo: 'POST', corpo: { deviceId: dispositivo?.deviceId, ...corpo } });
-      setAviso(ok);
+      await api('/dispositivo/comando', {
+        metodo: 'POST',
+        corpo: { deviceId: dispositivo.deviceId, ...corpo },
+      });
+      setAviso({ texto: 'Comando enviado. Aguarde a atualização da máquina.', erro: false });
     } catch (e) {
-      setAviso(e.message);
+      setAviso({ texto: e.message, erro: true });
     } finally {
       setEnviando(false);
     }
   }
 
-  if (erro) return <p className="erro" role="alert">{erro}</p>;
-  if (!estoque) return <p className="vazio">Carregando estoque...</p>;
-
-  const bitolas = Object.keys(estoque.totaisPorBitola);
-  const comprimentos = [...new Set(estoque.itens.map((i) => i.comprimentoMm))];
-  const qtd = (c, b) => estoque.itens.find((i) => i.comprimentoMm === c && i.bitola === b)?.quantidade ?? 0;
-
-  const segundos = telemetria ? Math.round((Date.now() - telemetria.recebidoEm) / 1000) : null;
-  const aoVivo = telemetria && segundos <= 5;
+  if (!estoque)
+    return (
+      <section className="painel estado-dashboard" aria-busy={carregando}>
+        <span className="sobretitulo">Visão geral</span>
+        <h1>{carregando ? 'Preparando seu estoque…' : 'Não foi possível carregar o estoque'}</h1>
+        <p className="app-sub">
+          {carregando
+            ? 'Buscando contagens, máquinas e pedidos da sua empresa.'
+            : (avisos[0] ?? 'Verifique a conexão e tente novamente.')}
+        </p>
+        {!carregando && (
+          <button className="btn btn-solido" onClick={atualizar}>
+            Tentar novamente
+          </button>
+        )}
+      </section>
+    );
 
   const dias14 = est?.ultimos14Dias ?? [];
-  const mediaContadas = dias14.length ? dias14.reduce((s, d) => s + d.total, 0) / dias14.length : 0;
-  const barrasPrevisao = prev
-    ? [
-        ...prev.historico.map((h) => ({ dia: h.dia, valores: [h.total] })),
-        ...prev.previsao.map((p) => ({ dia: p.dia, valores: [p.previsto], previsto: true })),
-      ]
-    : [];
+  const segundos = telemetria ? Math.max(0, Math.round((Date.now() - telemetria.recebidoEm) / 1000)) : null;
+  const aoVivo = conectado && dispositivo?.online && telemetria && segundos <= 5;
+  const bitolas = Object.keys(estoque.totaisPorBitola);
+  const comprimentos = [...new Set(estoque.itens.map((i) => i.comprimentoMm))];
+  const barrasPrevisao =
+    prev && !prev.semDados
+      ? [
+          ...prev.historico.map((h) => ({ dia: h.dia, valores: [h.total] })),
+          ...prev.previsao.map((p) => ({ dia: p.dia, valores: [p.previsto], previsto: true })),
+        ]
+      : [];
 
   return (
-    <>
-      <h1>Estoque em tempo real</h1>
-      <p className="app-sub">Contagem de peças válidas por bitola e comprimento, já descontados os pedidos.</p>
-
-      <div className="status-linha">
-        <span className={`pilula${conectado ? ' on' : ''}`}><i />{conectado ? 'Tempo real ativo' : 'Sem tempo real'}</span>
-        <span className={`pilula${dispositivo?.online ? ' on' : ''}`}>
-          <i />{dispositivo?.nome ?? 'Dispositivo'}: {dispositivo?.online ? 'online' : 'offline'}
+    <div className="dashboard">
+      <header className="dash-cabecalho">
+        <div>
+          <span className="sobretitulo">Visão geral da operação</span>
+          <h1>Seu estoque, em movimento.</h1>
+          <p className="app-sub">Acompanhe a contagem e encontre o próximo passo da sua operação.</p>
+        </div>
+        <div className="dash-acoes">
+          <button className="btn btn-contorno btn-sm" onClick={atualizar} disabled={carregando}>
+            {carregando ? 'Atualizando…' : 'Atualizar dados'}
+          </button>
+          <Link to="/app/pedidos" className="btn btn-solido btn-sm">
+            Reservar parafusos <span aria-hidden="true">↗</span>
+          </Link>
+        </div>
+      </header>
+      <div className="dash-conexao" role="status">
+        <span className={`pilula${conectado ? ' on' : ''}`}>
+          <i />
+          {conectado ? 'Atualização em tempo real' : 'Tempo real desconectado'}
         </span>
-        <span className={`pilula${dispositivo?.ligado ? ' on' : ''}`}><i />Separador {dispositivo?.ligado ? 'ligado' : 'desligado'}</span>
-        <div className="acoes-topo">
-          <Link to="/app/pedidos" className="btn btn-solido btn-sm">Pedido de parafusos</Link>
-          <button className="btn btn-contorno btn-sm" disabled={enviando || !dispositivo}
-                  onClick={() => comando({ tara: true }, 'Tara enviada: a balança será zerada.')}>Zerar balança</button>
-          <button className={`btn btn-sm ${dispositivo?.ligado ? 'btn-perigo' : 'btn-contorno'}`} disabled={enviando || !dispositivo}
-                  onClick={() => comando({ ligado: !dispositivo?.ligado }, 'Comando enviado. Aguardando confirmação do dispositivo.')}>
-            {dispositivo?.ligado ? 'Desligar separador' : 'Ligar separador'}
+        <span className="stat-detalhe">
+          {conectado
+            ? 'As novas contagens aparecem automaticamente.'
+            : 'Os dados podem estar desatualizados. Tentando reconectar…'}
+        </span>
+        <span className="dash-hora">Último saldo às {fmtHora(estoque.atualizadoEm)}</span>
+      </div>
+      {avisos.length > 0 && (
+        <div className="aviso-dashboard" role="alert">
+          <strong>Alguns dados não puderam ser atualizados.</strong>
+          <ul>
+            {avisos.map((a) => (
+              <li key={a}>{a}</li>
+            ))}
+          </ul>
+          <button className="btn btn-contorno btn-sm" onClick={atualizar} disabled={carregando}>
+            Tentar novamente
           </button>
         </div>
-      </div>
-
+      )}
       {!dispositivo && (
-        <div className="alerta-baixo" role="status">
-          <strong>Nenhuma máquina vinculada.</strong> Adicione uma em <Link to="/app/configuracoes">Configurações &gt; Máquinas</Link> para começar a contar.
-        </div>
+        <section className="primeiros-passos">
+          <div>
+            <span className="sobretitulo">Vamos começar</span>
+            <h2>Conecte sua primeira máquina</h2>
+            <p>
+              Adicione uma máquina, aguarde a conexão e faça a primeira contagem. Seu estoque será atualizado
+              aqui.
+            </p>
+          </div>
+          <Link to="/app/configuracoes" className="btn btn-solido btn-sm">
+            Configurar máquina
+          </Link>
+        </section>
       )}
-      {aviso && <p className="app-sub" role="status">{aviso}</p>}
-
       {estoque.estoqueBaixo && (
-        <div className="alerta-baixo" role="alert">
-          <strong>Estoque baixo:</strong> {estoque.bitolasBaixas.join(', ')} abaixo de {fmt(estoque.limiteBaixo)} peças.
+        <div className="alerta-baixo" role="status">
+          <strong>Atenção ao estoque:</strong> {estoque.bitolasBaixas.join(', ')} com menos de{' '}
+          {fmt(estoque.limiteBaixo)} peças. Consulte as combinações abaixo antes de reservar.
         </div>
       )}
 
-      <div className="stats">
-        <div className={`stat destaque${estoque.menorEstoque && estoque.menorEstoque.quantidade < estoque.limiteBaixo ? ' baixo' : ''}`}>
-          <span className="stat-rotulo">Parafuso com menos estoque</span>
-          {estoque.menorEstoque ? (
-            <>
-              <b className="stat-valor">{tipo(estoque.menorEstoque)}</b>
-              <span className="stat-detalhe">{fmt(estoque.menorEstoque.quantidade)} peças restantes</span>
-              {estoque.menores.length > 1 && (
-                <span className="stat-detalhe">Depois: {estoque.menores.slice(1).map((m) => `${tipo(m)} (${fmt(m.quantidade)})`).join(', ')}</span>
-              )}
-            </>
-          ) : (
-            <span className="stat-detalhe">Aparece quando a primeira peça for contada.</span>
-          )}
-        </div>
-        <div className="stat">
-          <span className="stat-rotulo">Contadas hoje</span>
-          <b className="stat-valor">{fmt(est?.hoje ?? 0)}</b>
-          <span className="stat-detalhe">peças válidas</span>
-        </div>
-        <div className="stat">
-          <span className="stat-rotulo">Média por dia</span>
-          <b className="stat-valor">{fmt1(est?.mediaPorDia ?? 0)}</b>
-          <span className="stat-detalhe">em {est?.diasAtivos ?? 0} dia(s) com contagem</span>
-        </div>
-        <div className="stat">
-          <span className="stat-rotulo">Média dos últimos 7 dias</span>
-          <b className="stat-valor">{fmt1(est?.mediaUltimos7Dias ?? 0)}</b>
-          <span className="stat-detalhe">dias parados contam como 0</span>
-        </div>
-        <div className="stat">
-          <span className="stat-rotulo">Peças rejeitadas</span>
-          <b className="stat-valor">{fmt1(est?.taxaRejeicao ?? 0)}%</b>
-          <span className="stat-detalhe">{fmt(est?.pecasRejeitadas ?? 0)} fora da faixa de peso</span>
-        </div>
-        <div className="stat">
-          <span className="stat-rotulo">Consumo previsto</span>
-          <b className="stat-valor">{fmt1(prev?.consumoDiario ?? 0)}</b>
-          <span className="stat-detalhe">peças por dia, pelos pedidos feitos</span>
-        </div>
-        <div className="stat">
-          <span className="stat-rotulo">Retirado em pedidos</span>
-          <b className="stat-valor">{fmt(est?.totalRetirado ?? 0)}</b>
-          <span className="stat-detalhe">{est?.pedidosAbertos ?? 0} pedido(s) aberto(s)</span>
-        </div>
+      <div className="stats stats-principais">
+        <Indicador
+          rotulo="Disponíveis agora"
+          valor={fmt(estoque.total)}
+          detalhe="peças livres, descontadas as reservas"
+          destaque
+        />
+        <Indicador
+          rotulo="Contadas hoje"
+          valor={est ? fmt(est.hoje) : '—'}
+          detalhe="peças válidas · horário de São Paulo"
+        />
+        <Indicador
+          rotulo="Média diária · 14 dias"
+          valor={est ? fmt(est.mediaUltimos14Dias) : '—'}
+          detalhe="peças/dia · inclui dias sem contagem"
+        />
+        <Indicador
+          rotulo="Desvio padrão · 14 dias"
+          valor={est ? fmt(est.desvioPadraoUltimos14Dias) : '—'}
+          detalhe="peças/dia · variação em torno da média"
+        />
       </div>
+      <details className="explicacao-metrica">
+        <summary>Como interpretar a média e o desvio padrão?</summary>
+        <p>
+          A média divide as peças válidas dos últimos 14 dias por 14. O desvio padrão populacional mostra
+          quanto a contagem diária varia em torno dessa média: quanto menor, mais regular é a produção.
+        </p>
+        <p>
+          Os dois indicadores usam os mesmos 14 dias corridos, incluindo dias zerados e o dia de hoje, ainda
+          em andamento, no fuso de São Paulo. O desvio usa divisor 14 e não é o erro padrão da média.
+        </p>
+      </details>
 
       <div className="grade-dash">
-        <section className="painel balanca">
-          <h2>Balança agora</h2>
-          {aoVivo ? (
+        <section className="painel painel-contagem">
+          <div className="painel-titulo">
+            <div>
+              <span className="sobretitulo">Ritmo da operação</span>
+              <h2>Contagem diária</h2>
+            </div>
+            <span className="etiqueta">Últimos 14 dias</span>
+          </div>
+          {est ? (
             <>
-              <b className="balanca-valor">{telemetria.peso.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} g</b>
-              <span className={`pilula${telemetria.estavel ? ' on' : ''}`}><i />{telemetria.estavel ? 'leitura estável' : 'medindo'}</span>
-              <span className="stat-detalhe">atualizado há {segundos}s{telemetria.rssi != null && `, Wi-Fi ${telemetria.rssi} dBm`}</span>
+              <Linha
+                pontos={dias14.map((d) => ({ dia: d.dia, valor: d.total }))}
+                media={est.mediaUltimos14Dias}
+                rotulo="Contagem diária e média dos últimos 14 dias"
+              />
+              <div className="resumo-metrica">
+                <span>
+                  Média <b>{fmt(est.mediaUltimos14Dias)}</b> peças/dia
+                </span>
+                <span>
+                  Desvio padrão <b>{fmt(est.desvioPadraoUltimos14Dias)}</b> peças/dia
+                </span>
+              </div>
+              <details className="dados-grafico">
+                <summary>Ver valores por dia</summary>
+                <div className="tabela-wrap">
+                  <table className="tabela">
+                    <caption>Contagem de peças válidas por dia</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">Dia</th>
+                        <th scope="col">Peças contadas</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dias14.map((d) => (
+                        <tr key={d.dia}>
+                          <th scope="row">{dm(d.dia)}</th>
+                          <td>{fmt(d.total)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
             </>
           ) : (
-            <p className="vazio" style={{ padding: 8 }}>Sem leitura ao vivo. Ligue a máquina para ver o peso da célula de carga aqui.</p>
+            <p className="vazio">
+              Contagem diária indisponível. Use “Atualizar dados” para tentar novamente.
+            </p>
+          )}
+        </section>
+
+        <section className="painel balanca">
+          <div className="painel-titulo">
+            <div>
+              <span className="sobretitulo">Máquina selecionada</span>
+              <h2>Balança ao vivo</h2>
+            </div>
+            <span className={`pilula${dispositivo?.online ? ' on' : ''}`}>
+              <i />
+              {dispositivo?.online ? 'Online' : 'Offline'}
+            </span>
+          </div>
+          {maquinas.length > 0 && (
+            <label className="seletor-maquina">
+              Máquina
+              <select
+                value={dispositivo?.deviceId ?? ''}
+                onChange={(e) => {
+                  selecionarMaquina(e.target.value);
+                  setAviso(null);
+                }}
+              >
+                {maquinas.map((m) => (
+                  <option key={m.deviceId} value={m.deviceId}>
+                    {m.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <div className="peso-painel">
+            <b className="balanca-valor">
+              {aoVivo
+                ? telemetria.peso.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })
+                : '—'}{' '}
+              <small>g</small>
+            </b>
+            <span className="stat-detalhe">
+              {aoVivo
+                ? `${telemetria.estavel ? 'Leitura estável' : 'Peso em estabilização'} · há ${segundos}s`
+                : dispositivo
+                  ? 'Aguardando uma leitura recente desta máquina.'
+                  : 'Conecte uma máquina para acompanhar o peso.'}
+            </span>
+          </div>
+          <div className="maquina-operacao">
+            <span>Separador</span>
+            <b>{!dispositivo ? 'Não configurado' : dispositivo.ligado ? 'Ligado' : 'Desligado'}</b>
+          </div>
+          <div className="maquina-botoes">
+            <button
+              className="btn btn-contorno btn-sm"
+              disabled={enviando || !dispositivo?.online}
+              onClick={() => comando({ tara: true })}
+            >
+              Zerar balança
+            </button>
+            <button
+              className={`btn btn-sm ${dispositivo?.ligado ? 'btn-perigo' : 'btn-solido'}`}
+              disabled={enviando || !dispositivo?.online}
+              onClick={() => comando({ ligado: !dispositivo.ligado })}
+            >
+              {enviando ? 'Enviando…' : dispositivo?.ligado ? 'Desligar' : 'Ligar'}
+            </button>
+          </div>
+          <p className="nota">
+            Os comandos são enviados à máquina. O estado muda quando ela confirma a atualização.
+          </p>
+          {aviso && (
+            <p className={`msg-app${aviso.erro ? ' erro' : ''}`} role={aviso.erro ? 'alert' : 'status'}>
+              {aviso.texto}
+            </p>
           )}
         </section>
 
         <section className="painel">
-          <h2>Estoque por bitola</h2>
+          <div className="painel-titulo">
+            <div>
+              <span className="sobretitulo">Disponibilidade</span>
+              <h2>Estoque por bitola</h2>
+            </div>
+          </div>
           <Rosca
-            rotulo="Distribuição do estoque por bitola"
-            centro="peças"
+            rotulo="Distribuição do estoque disponível por bitola"
+            centro="disponíveis"
             fatias={bitolas.map((b) => ({ nome: b, valor: estoque.totaisPorBitola[b] }))}
           />
-        </section>
-
-        <section className="painel largo">
-          <h2>Previsão de pedidos</h2>
-          {!prev || prev.semDados ? (
-            <p className="vazio">Ainda não há pedidos para prever. Depois dos primeiros pedidos, a previsão dos próximos 7 dias aparece aqui.</p>
-          ) : (
-            <>
-              <div className="previsao-topo">
-                <span className="resumo">
-                  Consumo previsto: <b>{fmt1(prev.consumoDiario)}</b> peças por dia, <b>{fmt1(prev.previstoProximos7Dias)}</b> nos próximos 7 dias.
-                  {' '}Pedidos <span className={`tendencia ${prev.tendencia}`}>{TENDENCIA[prev.tendencia]}</span>
-                  {prev.variacaoPercentual != null && ` (${prev.variacaoPercentual > 0 ? '+' : ''}${fmt1(prev.variacaoPercentual)}% sobre a semana anterior)`}.
-                </span>
-                <span className={`selo-conf ${prev.confianca}`}>confiança {prev.confianca}</span>
-              </div>
-              <div className="legenda">
-                <span><i style={{ background: 'var(--alerta)' }} />Pedidos feitos</span>
-                <span style={{ color: 'var(--alerta)' }}><i className="tracejado" />Previsto</span>
-              </div>
-              <Colunas itens={barrasPrevisao} series={[{ nome: 'Pedidos', cor: 'var(--alerta)' }]} rotulo="Pedidos dos últimos 14 dias e previsão dos próximos 7" />
-
-              <h3 style={{ marginTop: 22 }}>Quando cada tipo deve acabar</h3>
-              <div className="tabela-wrap">
-                <table className="tabela">
-                  <thead>
-                    <tr><th>Tipo</th><th>Estoque</th><th>Consumo/dia</th><th>Dura</th><th>Acaba em</th><th>Repor (14 dias)</th><th>Situação</th></tr>
-                  </thead>
-                  <tbody>
-                    {prev.porTipo.map((t) => (
-                      <tr key={`${t.bitola}-${t.comprimentoMm}`}>
-                        <td>{tipo(t)}</td>
-                        <td>{fmt(t.estoque)}</td>
-                        <td>{fmt1(t.consumoDiario)}</td>
-                        <td>{t.diasRestantes == null ? '-' : `${fmt1(t.diasRestantes)} dias`}</td>
-                        <td>{t.esgotaEm ? dm(t.esgotaEm) : '-'}</td>
-                        <td>{t.reposicaoSugerida14Dias ? fmt(t.reposicaoSugerida14Dias) : '-'}</td>
-                        <td><span className={`etiqueta ${t.status}`}>{ROTULO_STATUS[t.status]}</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <p className="nota">
-                Método: {prev.metodo}. {prev.confianca === 'baixa' && 'Ainda há poucos pedidos; use como referência. '}
-                A estimativa de duração não conta peças que ainda serão separadas.
-              </p>
-            </>
+          {estoque.menorEstoque && (
+            <div className="estoque-prioridade">
+              <span className="stat-detalhe">Menor estoque entre os tipos já contados</span>
+              <b>{tipo(estoque.menorEstoque)}</b>
+              <span>{fmt(estoque.menorEstoque.quantidade)} peças disponíveis</span>
+            </div>
           )}
         </section>
-
         <section className="painel">
-          <h2>Entradas e retiradas por dia</h2>
-          <div className="legenda">
-            <span><i style={{ background: 'var(--verde)' }} />Peças contadas</span>
-            <span><i style={{ background: 'var(--alerta)' }} />Retiradas em pedidos</span>
+          <div className="painel-titulo">
+            <div>
+              <span className="sobretitulo">Encontre suas peças</span>
+              <h2>Comprimento × bitola</h2>
+            </div>
+            <Link to="/app/pedidos">Reservar peças →</Link>
           </div>
-          <Colunas
-            itens={dias14.map((d) => ({ dia: d.dia, valores: [d.total, d.retirados] }))}
-            series={[{ nome: 'Contadas', cor: 'var(--verde)' }, { nome: 'Retiradas', cor: 'var(--alerta)' }]}
-            rotulo="Peças contadas e retiradas por dia nos últimos 14 dias"
-          />
-        </section>
-
-        <section className="painel">
-          <h2>Peças contadas por dia</h2>
-          <Linha
-            pontos={dias14.map((d) => ({ dia: d.dia, valor: d.total }))}
-            media={mediaContadas}
-            rotulo="Peças contadas por dia nos últimos 14 dias"
-          />
-        </section>
-
-        <section className="painel">
-          <h2>Comprimento × bitola</h2>
           <div className="tabela-wrap">
             <table className="tabela">
-              <thead><tr><th>Comprimento</th>{bitolas.map((b) => <th key={b}>{b}</th>)}</tr></thead>
+              <caption>Peças disponíveis por comprimento e bitola</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Comprimento</th>
+                  {bitolas.map((b) => (
+                    <th scope="col" key={b}>
+                      {b}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
               <tbody>
                 {comprimentos.map((c) => (
-                  <tr key={c}><td>{c} mm</td>{bitolas.map((b) => <td key={b}>{fmt(qtd(c, b))}</td>)}</tr>
+                  <tr key={c}>
+                    <th scope="row">{c} mm</th>
+                    {bitolas.map((b) => (
+                      <td key={b}>
+                        {fmt(
+                          estoque.itens.find((i) => i.comprimentoMm === c && i.bitola === b)?.quantidade ?? 0
+                        )}
+                      </td>
+                    ))}
+                  </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </section>
-
+      </div>
+      <div className="stats stats-secundarias">
+        <Indicador
+          rotulo="Peças reservadas"
+          valor={est ? fmt(est.totalReservado) : '—'}
+          detalhe={`${est?.pedidosAbertos ?? 0} pedido(s) aguardando retirada`}
+        />
+        <Indicador
+          rotulo="Retiradas confirmadas"
+          valor={est ? fmt(est.totalRetiradoConfirmado) : '—'}
+          detalhe="peças recolhidas nos pedidos"
+        />
+        <Indicador
+          rotulo="Taxa de rejeição"
+          valor={est ? `${fmt(est.taxaRejeicao)}%` : '—'}
+          detalhe={`${fmt(est?.pecasRejeitadas ?? 0)} peças rejeitadas no histórico`}
+        />
+        <Indicador
+          rotulo="Média em dias ativos"
+          valor={est ? fmt(est.mediaPorDia) : '—'}
+          detalhe={`${est?.diasAtivos ?? 0} dia(s) com contagem no histórico`}
+        />
+      </div>
+      <div className="grade-dash">
         <section className="painel">
-          <h2>Últimas peças</h2>
+          <div className="painel-titulo">
+            <div>
+              <span className="sobretitulo">Movimentações</span>
+              <h2>Entradas e peças comprometidas</h2>
+            </div>
+          </div>
+          <p className="nota nota-topo">
+            Pedidos abertos e retirados, agrupados pela data do pedido. Cancelados não entram.
+          </p>
+          {est ? (
+            <>
+              <div className="legenda">
+                <span>
+                  <i style={{ background: 'var(--verde)' }} />
+                  Contadas
+                </span>
+                <span>
+                  <i style={{ background: 'var(--alerta)' }} />
+                  Comprometidas em pedidos
+                </span>
+              </div>
+              <Colunas
+                itens={dias14.map((d) => ({ dia: d.dia, valores: [d.total, d.retirados] }))}
+                series={[
+                  { nome: 'Contadas', cor: 'var(--verde)' },
+                  { nome: 'Comprometidas', cor: 'var(--alerta)' },
+                ]}
+                rotulo="Entradas e peças comprometidas em pedidos nos últimos 14 dias"
+              />
+            </>
+          ) : (
+            <p className="vazio">Movimentações indisponíveis.</p>
+          )}
+        </section>
+        <section className="painel">
+          <div className="painel-titulo">
+            <div>
+              <span className="sobretitulo">Atividade recente</span>
+              <h2>Últimas peças</h2>
+            </div>
+            <Link to="/app/historico">Ver histórico →</Link>
+          </div>
           {ultimas.length === 0 ? (
-            <p className="vazio">Nenhuma peça ainda.</p>
+            <p className="vazio">As primeiras peças aparecerão aqui assim que forem contadas.</p>
           ) : (
             <ul className="feed">
               {ultimas.map((u) => (
                 <li key={u.id} className={u.valido ? '' : 'invalida'}>
                   <span>{fmtHora(u.ocorridoEm)}</span>
-                  <b>{u.valido ? `${u.bitola} × ${u.comprimentoMm} mm` : `Rejeitada (${u.comprimentoMm} mm)`}</b>
-                  <small>{u.peso.toFixed(2)} g</small>
+                  <b>{u.valido ? tipo(u) : `Rejeitada · ${u.comprimentoMm} mm`}</b>
+                  <small>
+                    {u.peso.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} g
+                  </small>
                 </li>
               ))}
             </ul>
           )}
         </section>
+        <section className="painel largo">
+          <div className="painel-titulo">
+            <div>
+              <span className="sobretitulo">Planeje a reposição</span>
+              <h2>Previsão de consumo</h2>
+            </div>
+            {prev && !prev.semDados && (
+              <span className={`selo-conf ${prev.confianca}`}>Confiança {prev.confianca}</span>
+            )}
+          </div>
+          {!prev ? (
+            <p className="vazio">Previsão indisponível no momento. O estoque continua disponível acima.</p>
+          ) : prev.semDados ? (
+            <div className="vazio">
+              <p>Ainda não há pedidos suficientes para uma previsão.</p>
+              <Link to="/app/pedidos">Faça a primeira reserva para começar →</Link>
+            </div>
+          ) : (
+            <>
+              <p className="app-sub">
+                Estimativa de <b>{fmt(prev.consumoDiario)} peças por dia</b> e{' '}
+                <b>{fmt(prev.previstoProximos7Dias)} peças nos próximos 7 dias</b>, com base nos pedidos não
+                cancelados.
+              </p>
+              <div className="legenda">
+                <span>
+                  <i style={{ background: 'var(--alerta)' }} />
+                  Pedidos feitos
+                </span>
+                <span>
+                  <i className="tracejado" />
+                  Estimativa
+                </span>
+              </div>
+              <Colunas
+                itens={barrasPrevisao}
+                series={[{ nome: 'Pedidos', cor: 'var(--alerta)' }]}
+                rotulo="Histórico de pedidos e estimativa dos próximos 7 dias"
+              />
+              <details className="dados-grafico">
+                <summary>Ver previsão de reposição por tipo</summary>
+                <div className="tabela-wrap">
+                  <table className="tabela">
+                    <caption>Estimativa de consumo e reposição por tipo</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">Tipo</th>
+                        <th scope="col">Disponível</th>
+                        <th scope="col">Consumo/dia</th>
+                        <th scope="col">Duração</th>
+                        <th scope="col">Repor para 14 dias</th>
+                        <th scope="col">Situação</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {prev.porTipo.map((t) => (
+                        <tr key={`${t.bitola}-${t.comprimentoMm}`}>
+                          <th scope="row">{tipo(t)}</th>
+                          <td>{fmt(t.estoque)}</td>
+                          <td>{fmt(t.consumoDiario)}</td>
+                          <td>{t.diasRestantes == null ? 'Sem consumo' : `${fmt(t.diasRestantes)} dias`}</td>
+                          <td>{fmt(t.reposicaoSugerida14Dias)}</td>
+                          <td>
+                            <span className={`etiqueta ${t.status}`}>{ROTULO_STATUS[t.status]}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+              <p className="nota">
+                Método: {prev.metodo}.{' '}
+                {prev.confianca === 'baixa' && 'Há poucos dados: use esta previsão apenas como referência. '}A
+                estimativa não inclui peças que ainda serão contadas.
+              </p>
+            </>
+          )}
+        </section>
       </div>
-    </>
+    </div>
   );
 }

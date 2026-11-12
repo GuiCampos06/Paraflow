@@ -26,6 +26,14 @@ Cada usuário só enxerga os dados da própria empresa.
 | GET | `/eventos/resumo` | logado | peças válidas por dia e bitola |
 | POST | `/eventos` | logado | simula uma peça (só com `ALLOW_SIMULATION=true`) |
 
+### Estatísticas da contagem diária
+
+`GET /estoque/estatisticas` inclui `mediaUltimos14Dias` e `desvioPadraoUltimos14Dias`, em peças/dia e arredondados para uma casa decimal. Os dois usam os mesmos 14 dias corridos no fuso America/Sao_Paulo, incluindo dias sem contagem como zero e hoje ainda em andamento. O desvio é populacional: `sqrt(soma((contagemDoDia - media)^2) / 14)`, não o erro padrão da média.
+
+`contagemDiaria` informa período, tipo de desvio, fuso e inclusão de dias zerados/hoje. `mediaPorDia` continua usando apenas dias ativos do histórico completo; `desvioPadraoPorDia` acompanha essa mesma série. `totalReservado` conta peças de pedidos abertos; `totalRetiradoConfirmado` conta somente retirados. `totalRetirado` mantém o contrato antigo, incluindo abertos e retirados.
+
+Peças recebidas por MQTT ou simulação também são conferidas contra o catálogo da empresa. Comprimento não suportado ou bitola não suportada em peça válida produzem `CATALOGO_INVALIDO` na API; mensagens MQTT inválidas não são gravadas.
+
 ## Pedidos
 
 | Método | Rota | Acesso | O que faz |

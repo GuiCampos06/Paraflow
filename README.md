@@ -69,7 +69,7 @@ npx expo install --fix
 npm run start
 ```
 
-Se aparecer erro de dados antigos depois de atualizar o projeto, apague o banco com `npm run resetar-banco -w backend -- --sim`.
+Ao atualizar o projeto, preserve o banco existente e revise mudanças de dados antes de executar migrações.
 
 ## Primeiros passos no sistema
 
@@ -97,4 +97,18 @@ O dono pode tudo: máquinas, regras de estoque e equipe. O operador consulta o e
 - Editar a tabela de peso pelo site
 - Recuperação de senha
 - Fila de envio no firmware para quando o MQTT cair
-- Testes automatizados
+- Ampliar os testes automatizados e os ensaios físicos
+
+## Dashboard e build
+
+O dashboard mostra média e desvio padrão populacional das peças válidas dos últimos 14 dias, incluindo dias sem contagem e hoje ainda em andamento. Também permite escolher a máquina da balança e distingue reservas de retiradas confirmadas.
+
+```bash
+npm run build
+```
+
+O build gera o site em `web/dist`. Em produção, `npm start` serve o site e a API juntos. Para simular contagens durante o desenvolvimento sem o ESP32, use o comando `npm run simular` descrito acima.
+
+## Publicar online
+
+O arquivo `render.yaml` prepara site e API no mesmo serviço. Siga [o guia de publicação no Render](docs/publicar-render.md) para conectar o GitHub e configurar o banco. A publicação depende da sua conta Render e das credenciais do banco, preenchidas diretamente no painel.

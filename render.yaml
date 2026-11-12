@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: paraflow
+    runtime: node
+    plan: free
+    numInstances: 1
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "24.19.0"
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGO_URI
+        sync: false
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      - key: CORS_ORIGINS
+        value: ""
+      - key: ALLOW_SIMULATION
+        value: "false"
+      - key: MQTT_TOPIC_PREFIX
+        value: paraflow
+# Cadastre MQTT_URL (mqtts://...), MQTT_USERNAME e MQTT_PASSWORD no painel
+# quando conectar máquinas. Sem broker, consultas e pedidos continuam disponíveis.
+# Free serve para demonstração: pode hibernar e interromper ingestão MQTT.

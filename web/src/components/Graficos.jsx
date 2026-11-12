@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 // gráficos em SVG puro (sem biblioteca); as cores vêm do tokens.css
 
@@ -97,6 +97,8 @@ export function Colunas({ itens, series, altura = 220, rotulo, unidade = 'peças
 /** Linha com área e uma linha tracejada de referência (média). pontos: [{ dia, valor }] */
 export function Linha({ pontos, cor = 'var(--ciano)', media, altura = 220, rotulo, unidade = 'peças' }) {
   const [ref, L] = useLargura(LARGURA);
+  const gradienteId = useId();
+  if (!pontos.length) return <div ref={ref} className="vazio">Nenhuma contagem disponível neste período.</div>;
   const H = altura;
   const h = H - M.t - M.b;
   const max = maximoBonito(Math.max(...pontos.map((p) => p.valor), media ?? 0, 0));
@@ -111,13 +113,13 @@ export function Linha({ pontos, cor = 'var(--ciano)', media, altura = 220, rotul
     <div ref={ref}>
     <svg className="grafico-svg" width="100%" height={H} viewBox={`0 0 ${L} ${H}`} role="img" aria-label={rotulo}>
       <defs>
-        <linearGradient id="g-area" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={gradienteId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#00e5ff" stopOpacity="0.35" />
           <stop offset="1" stopColor="#00e5ff" stopOpacity="0" />
         </linearGradient>
       </defs>
       <Eixos L={L} H={H} max={max} rotulos={rotulos} passo={Math.ceil(pontos.length / Math.max(3, Math.floor(L / 62)))} />
-      <path d={area} fill="url(#g-area)" />
+      <path d={area} fill={`url(#${gradienteId})`} />
       {yMedia != null && (
         <g>
           <line x1={M.l} x2={L - M.r} y1={yMedia} y2={yMedia} className="g-media" />
