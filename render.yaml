@@ -21,7 +21,7 @@ services:
       - key: CORS_ORIGINS
         value: ""
       - key: ALLOW_SIMULATION
-        value: "false"
+        value: "true" # Demonstração: simulador restrito ao dono da empresa.
       - key: MQTT_TOPIC_PREFIX
         value: paraflow-guicampos06-demo-20261113
       # Broker público autorizado somente para simulação com dados fictícios.

@@ -48,6 +48,10 @@ Peças recebidas por MQTT ou simulação também são conferidas contra o catál
 
 ## Máquinas e regras
 
+O envio de comando aguarda o ACK MQTT por até 10 segundos. Falta de ACK ou desconexão retorna HTTP 503 com `codigo: MQTT_OFFLINE`. Isso não prova que uma publicação pendente deixou de ser entregue: confira o estado da máquina antes de repetir. O ACK do broker também não confirma execução física.
+
+No site, comandos e consultas/alterações do simulador têm prazo de 15 segundos, incluindo leitura do corpo HTTP. Ao esgotar, o cliente libera o carregamento e mostra `TEMPO_ESGOTADO`; não repete alterações automaticamente. As demais chamadas têm prazo de 75 segundos para acomodar o despertar do Render Free.
+
 | Método | Rota | Acesso | O que faz |
 |---|---|---|---|
 | GET | `/dispositivo` | logado | máquinas e status |

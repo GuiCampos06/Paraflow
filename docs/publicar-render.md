@@ -20,7 +20,7 @@ O projeto está preparado para servir site React, API REST e Socket.IO no mesmo 
 - `npm start`: inicia a API e, em produção, serve o site e suas rotas diretas.
 - `render.yaml`: descreve um Web Service Node, uma instância, segredo JWT gerado, health check e build.
 - Origem Render detectada automaticamente para CORS/Socket.IO; não é preciso compilar o site com uma URL de API diferente.
-- Simulação HTTP desativada no perfil publicado; o banco e usuários fictícios da revisão local não são enviados.
+- Simulação de contagem habilitada no perfil de demonstração, restrita ao dono; ela grava peças fictícias na empresa. O banco e usuários da revisão local não são enviados.
 
 Uma hospedagem apenas estática não executaria o backend Express/MongoDB/MQTT. Por isso o caminho preparado usa um Web Service, sem reescrever a aplicação para outro ambiente.
 
@@ -53,7 +53,7 @@ Se não usar Blueprint, configure os mesmos valores manualmente:
 | MONGO_URI | Sua conexão MongoDB, preenchida como segredo no painel |
 | JWT_SECRET | Segredo aleatório forte exclusivo desse ambiente |
 | TRUST_PROXY_HOPS | `1` |
-| ALLOW_SIMULATION | `false` |
+| ALLOW_SIMULATION | `true` somente para demonstração; `false` com dados reais |
 
 Não configure VITE_API_URL para localhost: a aplicação usa a mesma origem. Para domínio próprio, adicione a URL HTTPS em PUBLIC_URL e os demais sites autorizados em CORS_ORIGINS, separados por vírgula. A URL onrender é detectada automaticamente por RENDER_EXTERNAL_URL.
 
