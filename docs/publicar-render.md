@@ -5,12 +5,14 @@ O projeto está preparado para servir site React, API REST e Socket.IO no mesmo 
 ## Publicação verificada em 13/11/2026
 
 - Site e login: https://paraflow.onrender.com/login.
-- Serviço Node Free, branch `main`, commit `13ba4c6`, gerenciado pelo Blueprint `ParaFlow`.
-- Deploy `dep-dbr7rot6e07s73aqrglg` confirmado como Live no Render.
-- `/api/health` respondeu `status: ok`, `banco: true`, `mqtt: false`.
+- Serviço Node Free, branch `main`, configuração do commit `30969a4`, gerenciado pelo Blueprint `ParaFlow`.
+- Deploy `dep-dbr7uviaujis73cn4e60` confirmado como Live no Render.
+- `/api/health` respondeu `status: ok`, `banco: true`, `mqtt: true` depois da configuração MQTT.
 - Acesso direto a `/app/dashboard` respondeu HTTP 200 com a aplicação React; o login abriu no navegador.
 - A conexão MongoDB existente foi cadastrada como segredo com autorização do responsável. Nenhuma credencial foi incluída no repositório.
-- A conexão MQTT do Wokwi ainda depende da configuração do broker. O plano Free pode suspender o backend por inatividade.
+- O [projeto Wokwi](https://wokwi.com/projects/475790891768031233) foi salvo com `TOPIC_PREFIX` igual a `paraflow-guicampos06-demo-20261113`, compilou e mostrou `MQTT conectado!`. O backend reconheceu a máquina como online, com contato registrado em 13/11/2026 às 00:14:54 (Brasília).
+- Para esta demonstração, o responsável autorizou `mqtt://broker.hivemq.com:1883` exclusivamente com dados fictícios, ciente de que mensagens, tokens e comandos ficam expostos. O prefixo exclusivo evita colisões, mas não oferece autenticação nem privacidade no broker.
+- O plano Free pode suspender o backend por inatividade. A simulação também precisa continuar aberta e executando no Wokwi; a hospedagem não executa o ESP32 simulado.
 
 ## O que já está pronto
 
@@ -31,7 +33,7 @@ Uma hospedagem apenas estática não executaria o backend Express/MongoDB/MQTT. 
 5. Confira o plano selecionado e inicie a criação. Aguarde build e estado Live. O endereço final será o mostrado no painel; nenhum endereço público foi criado apenas por adicionar o arquivo YAML.
 6. Abra `/api/health`, `/login` e `/app/dashboard`. Cadastre sua empresa, adicione a máquina e confira login, histórico e reserva. Atualizar diretamente `/app/dashboard` deve manter a aplicação funcionando.
 
-O backend/.env local já possui uma conexão de banco não local, mas ela não foi testada nem transferida nesta revisão. Confirme se deseja usar esse banco na publicação; prefira separar dados de demonstração dos dados em uso. Preencha credenciais diretamente no painel do Render.
+Na publicação acima, a conexão de banco de `backend/.env` foi transferida ao Render com autorização e validada por `/api/health`. Em novas instalações, escolha conscientemente o banco; prefira separar demonstração e dados em uso. Preencha credenciais diretamente no painel do Render.
 
 ## Alternativa: New → Web Service
 
@@ -56,6 +58,8 @@ Se não usar Blueprint, configure os mesmos valores manualmente:
 Não configure VITE_API_URL para localhost: a aplicação usa a mesma origem. Para domínio próprio, adicione a URL HTTPS em PUBLIC_URL e os demais sites autorizados em CORS_ORIGINS, separados por vírgula. A URL onrender é detectada automaticamente por RENDER_EXTERNAL_URL.
 
 ## Conectar o ESP32 online
+
+O Blueprint deste repositório usa o broker público da demonstração descrita acima. O Wokwi e o Render devem manter o mesmo prefixo. Use esse ambiente apenas com dados fictícios. Para passar a dados reais, remova essa configuração pública do Blueprint e aplique a configuração privada abaixo.
 
 Cadastre MQTT_URL com `mqtts://`, MQTT_USERNAME e MQTT_PASSWORD no ambiente Render. Use um prefixo próprio em MQTT_TOPIC_PREFIX e o mesmo prefixo/credenciais de broker no firmware. O token da máquina continua sendo o gerado pelo Paraflow, distinto da senha de acesso ao broker.
 
