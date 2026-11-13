@@ -23,7 +23,10 @@ services:
       - key: ALLOW_SIMULATION
         value: "false"
       - key: MQTT_TOPIC_PREFIX
-        value: paraflow
-# Cadastre MQTT_URL (mqtts://...), MQTT_USERNAME e MQTT_PASSWORD no painel
-# quando conectar máquinas. Sem broker, consultas e pedidos continuam disponíveis.
+        value: paraflow-guicampos06-demo-20261113
+      # Broker público autorizado somente para simulação com dados fictícios.
+      # Mensagens, tokens da máquina e comandos ficam expostos a outros clientes.
+      - key: MQTT_URL
+        value: mqtt://broker.hivemq.com:1883
+# Para dados reais, substitua por broker privado com TLS, credenciais e ACL.
 # Free serve para demonstração: pode hibernar e interromper ingestão MQTT.

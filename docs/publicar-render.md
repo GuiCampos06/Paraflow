@@ -2,6 +2,16 @@
 
 O projeto está preparado para servir site React, API REST e Socket.IO no mesmo endereço HTTPS. O MongoDB fica em um serviço externo, como Atlas. O broker MQTT também precisa de um endereço alcançável pelo servidor e pelo ESP32.
 
+## Publicação verificada em 13/11/2026
+
+- Site e login: https://paraflow.onrender.com/login.
+- Serviço Node Free, branch `main`, commit `13ba4c6`, gerenciado pelo Blueprint `ParaFlow`.
+- Deploy `dep-dbr7rot6e07s73aqrglg` confirmado como Live no Render.
+- `/api/health` respondeu `status: ok`, `banco: true`, `mqtt: false`.
+- Acesso direto a `/app/dashboard` respondeu HTTP 200 com a aplicação React; o login abriu no navegador.
+- A conexão MongoDB existente foi cadastrada como segredo com autorização do responsável. Nenhuma credencial foi incluída no repositório.
+- A conexão MQTT do Wokwi ainda depende da configuração do broker. O plano Free pode suspender o backend por inatividade.
+
 ## O que já está pronto
 
 - `npm run build`: gera o site em web/dist.
