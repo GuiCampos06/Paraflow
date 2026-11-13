@@ -15,6 +15,7 @@
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <ESP32Servo.h>
+#include <ESP32PWM.h>
 #include <HX711.h>
 #include <Preferences.h>
 #include "secrets.h"  // WIFI_*, MQTT_*, TOPIC_PREFIX, DEVICE_ID, DEVICE_TOKEN
@@ -41,6 +42,8 @@ const unsigned long AMOSTRA_MS = 100;        // uma leitura da balança a cada 1
 const unsigned long TELEMETRIA_MS = 1000;
 const unsigned long LED_INVALIDO_MS = 1500;
 const unsigned long BIPE_MS = 150;
+const unsigned long INTERVALO_ALERTA_MS = 5000;
+const int FREQUENCIA_BUZZER_HZ = 2000;
 const unsigned long RETRY_MS = 5000;
 
 // célula de carga (HX711)
@@ -70,6 +73,7 @@ const float K_DESVIOS = 2.0f;
 WiFiClient wifi;
 PubSubClient mqtt(wifi);
 Servo carrossel;
+ESP32PWM buzzer;
 HX711 balanca;
 Preferences prefs;
 
@@ -78,6 +82,7 @@ char mensagemLwt[128];
 
 bool separadorLigado = true;
 bool estoqueBaixo = false;
+unsigned long inicioAlertaEstoque = 0;
 unsigned long ledInvalidoAte = 0;
 
 // buzzer sem delay: N bipes
@@ -110,15 +115,27 @@ int pedidoPosicao = 0;
 unsigned long ultimaTentativaWifi = 0, ultimaTentativaMqtt = 0;
 
 // saídas
-void bipar(int n) { bipesRestantes = n; bipeLigado = false; proximaTrocaBipe = 0; }
+void bipar(int n) { bipesRestantes = n; bipeLigado = false; proximaTrocaBipe = millis(); }
+
+void aplicaEstoqueBaixo(bool baixo) {
+  // Mensagens repetidas não reiniciam o bipe nem o intervalo do alerta.
+  if (baixo && !estoqueBaixo) inicioAlertaEstoque = millis();
+  estoqueBaixo = baixo;
+}
 
 void atualizaSaidas() {
   unsigned long agora = millis();
-  if ((bipesRestantes > 0 || bipeLigado) && agora >= proximaTrocaBipe) {
-    if (!bipeLigado) { bipeLigado = true; digitalWrite(BUZZER, HIGH); }
-    else { bipeLigado = false; digitalWrite(BUZZER, LOW); bipesRestantes--; }
+  if ((bipesRestantes > 0 || bipeLigado) && (long)(agora - proximaTrocaBipe) >= 0) {
+    if (!bipeLigado) bipeLigado = true;
+    else { bipeLigado = false; bipesRestantes--; }
     proximaTrocaBipe = agora + BIPE_MS;
   }
+  // Pedidos e rejeições têm prioridade, inclusive nas pausas entre seus bipes.
+  bool avisoPontual = bipesRestantes > 0 || bipeLigado;
+  bool bipeEstoque = estoqueBaixo && !avisoPontual &&
+                    (agora - inicioAlertaEstoque) % INTERVALO_ALERTA_MS < BIPE_MS;
+  // O piezo passivo do Wokwi precisa de uma onda audível, não de HIGH constante.
+  buzzer.writeScaled((bipeLigado || bipeEstoque) ? 0.5 : 0.0);
   // LED acende por peça inválida OU por estoque baixo: causas independentes
   digitalWrite(LED_ALERTA, agora < ledInvalidoAte || estoqueBaixo);
 }
@@ -242,7 +259,7 @@ void aoReceber(char* topico, byte* payload, unsigned int tam) {
     if (doc["ligado"].is<bool>()) aplicaSeparador(doc["ligado"].as<bool>());
     if (doc["tara"].is<bool>() && doc["tara"].as<bool>()) pedirTara = true;
   } else if (strcmp(topico, topicoAlerta) == 0) {
-    if (doc["estoqueBaixo"].is<bool>()) estoqueBaixo = doc["estoqueBaixo"].as<bool>();
+    if (doc["estoqueBaixo"].is<bool>()) aplicaEstoqueBaixo(doc["estoqueBaixo"].as<bool>());
   } else if (strcmp(topico, topicoPedido) == 0) {
     int pos;
     if (posicaoDaGaveta(doc["comp"] | 0, doc["bitola"] | "", pos)) {
@@ -409,6 +426,9 @@ void setup() {
   pinMode(RELE_SEPARADOR, OUTPUT);
   pinMode(BUZZER, OUTPUT);
   carrossel.attach(PIN_SERVO);
+  // A mesma biblioteca aloca timers distintos para o servo (50 Hz) e o buzzer.
+  buzzer.attachPin(BUZZER, FREQUENCIA_BUZZER_HZ, 10);
+  buzzer.writeScaled(0.0);
   aplicaSeparador(true);
 
   prefs.begin("paraflow", false);

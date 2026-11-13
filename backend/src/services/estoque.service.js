@@ -5,6 +5,7 @@ import { bus } from '../utils/bus.js';
 import { obterConfig } from './config.service.js';
 import { resumirContagens } from '../utils/estatisticas.js';
 import { AppError } from '../utils/AppError.js';
+import { calcularAlertas } from '../utils/alertasEstoque.js';
 
 // em aggregate() o MongoDB não converte string -> ObjectId sozinho (find() converte).
 const oid = (id) => new mongoose.Types.ObjectId(String(id));
@@ -46,9 +47,7 @@ export async function obterEstoque(organizacaoId) {
   }
 
   const total = Object.values(totaisPorBitola).reduce((a, b) => a + b, 0);
-  // só alerta depois que o sistema começou a contar (evita alarme com tudo zerado).
-  const bitolasBaixas =
-    totalEntradas === 0 ? [] : cfg.bitolas.filter((b) => totaisPorBitola[b] < cfg.limiteBaixo);
+  const alertas = calcularAlertas(itens, cfg.limiteBaixo, totalEntradas);
 
   // "menos estoque" só considera tipos que já foram contados alguma vez
   const menores = itens
@@ -64,8 +63,7 @@ export async function obterEstoque(organizacaoId) {
     totalEntradas,
     totalRetirados,
     limiteBaixo: cfg.limiteBaixo,
-    bitolasBaixas,
-    estoqueBaixo: bitolasBaixas.length > 0,
+    ...alertas,
     menorEstoque: menores[0] ?? null,
     menores,
     atualizadoEm: new Date().toISOString(),

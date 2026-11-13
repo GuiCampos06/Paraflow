@@ -27,6 +27,19 @@ Ao apertar o botão de comprimento, o firmware espera a peça assentar e a leitu
 
 Quando alguém faz um pedido no site, o carrossel gira até a gaveta daquele tipo e o buzzer apita duas vezes.
 
+### Alarme de estoque baixo
+
+Ao receber `{"estoqueBaixo":true}` no tópico `<TOPIC_PREFIX>/<DEVICE_ID>/alerta`, o LED vermelho acende e o buzzer emite um bipe de 150 ms imediatamente, repetido a cada 5 segundos. Ao receber `false`, o alarme de estoque para. Os dois bipes de pedido e o bipe de peça rejeitada têm prioridade e continuam funcionando, mesmo sem alerta de estoque.
+
+O buzzer passivo do Wokwi usa um sinal de 2000 Hz no GPIO 33. O firmware usa `ESP32PWM`, já incluído na biblioteca ESP32Servo, para gerar o som sem bloquear o loop e sem compartilhar o timer do servo.
+
+Para conferir na simulação:
+
+1. Atualize o `sketch.ino` do projeto Wokwi e mantenha o áudio do navegador habilitado.
+2. Com backend e ESP32 conectados ao mesmo broker/prefixo, registre ao menos uma peça válida e ajuste o limite de estoque baixo no site para ficar acima do disponível de alguma combinação de bitola e comprimento. Por exemplo, M3 de 5 mm com 20 peças aciona um limite de 30, mesmo com muitos M3 de outros comprimentos. Com nenhuma entrada registrada, o alarme é suprimido; depois disso, combinações zeradas também alertam.
+3. Confira o LED vermelho e um bipe imediato, seguido de outro a cada 5 segundos. O alerta também funciona com o separador desligado pelo site.
+4. Ajuste o limite para zero: o LED deve apagar e os bipes de estoque devem parar. Um pedido ainda deve produzir dois bipes, e uma peça rejeitada, um.
+
 ## Calibração
 
 O fator padrão (419,43 contagens por grama) é o valor teórico de uma célula de 5 kg. Para calibrar a sua, abra o Serial Monitor (115200):

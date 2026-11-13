@@ -155,7 +155,7 @@ export default function Dashboard() {
       )}
       {estoque.estoqueBaixo && (
         <div className="alerta-baixo" role="status">
-          <strong>Atenção ao estoque:</strong> {estoque.bitolasBaixas.join(', ')} com menos de{' '}
+          <strong>Atenção ao estoque:</strong> {(estoque.tiposBaixos ?? []).map((i) => `${i.bitola} ${i.comprimentoMm} mm (${fmt(i.quantidade)})`).join(', ')} com menos de{' '}
           {fmt(estoque.limiteBaixo)} peças. Consulte as combinações abaixo antes de reservar.
         </div>
       )}

@@ -4,6 +4,7 @@ import { app } from './app.js';
 import { conectarBanco, desconectarBanco } from './config/db.js';
 import { iniciarSockets, fecharSockets } from './sockets/index.js';
 import { iniciarMqtt, encerrarMqtt } from './services/mqtt.service.js';
+import { simulador } from './services/simulador.service.js';
 
 // sobe o banco, depois HTTP + WebSocket e por fim o MQTT
 async function main() {
@@ -20,6 +21,7 @@ async function main() {
   const encerrar = async (sinal) => {
     console.log(`\n${sinal} recebido, encerrando...`);
     server.close();
+    await simulador.encerrar();
     await Promise.allSettled([fecharSockets(), encerrarMqtt(), desconectarBanco()]);
     process.exit(0);
   };

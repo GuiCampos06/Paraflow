@@ -31,7 +31,7 @@ export function iniciarSockets(httpServer) {
     const alvo = io.to(sala(organizacaoId));
     alvo.emit('estoque:atualizado', estoque);
     if (estoque.estoqueBaixo) {
-      alvo.emit('alerta:estoque-baixo', { bitolas: estoque.bitolasBaixas, limite: estoque.limiteBaixo });
+      alvo.emit('alerta:estoque-baixo', { bitolas: estoque.bitolasBaixas, tipos: estoque.tiposBaixos, limite: estoque.limiteBaixo });
     }
     if (evento) {
       alvo.emit('evento:novo', {

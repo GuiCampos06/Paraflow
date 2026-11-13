@@ -26,6 +26,8 @@ Cada usuário só enxerga os dados da própria empresa.
 | GET | `/eventos/resumo` | logado | peças válidas por dia e bitola |
 | POST | `/eventos` | logado | simula uma peça (só com `ALLOW_SIMULATION=true`) |
 
+O alerta de estoque baixo compara o disponível de cada combinação de `bitola` + `comprimentoMm` com `limiteBaixo`, usando `<` (igual ao limite não alerta). Por exemplo, M3 de 5 mm com 20 disponíveis aciona o limite de 30 mesmo que outros comprimentos de M3 tenham mais de 30. `tiposBaixos` contém `{bitola, comprimentoMm, quantidade}`; `bitolasBaixas` permanece como lista de bitolas distintas para compatibilidade. `estoqueBaixo` indica se há algum tipo abaixo do limite. Após a primeira entrada válida, combinações zeradas também alertam; antes dela, o alerta fica suprimido. Limite zero desativa os alertas.
+
 ### Estatísticas da contagem diária
 
 `GET /estoque/estatisticas` inclui `mediaUltimos14Dias` e `desvioPadraoUltimos14Dias`, em peças/dia e arredondados para uma casa decimal. Os dois usam os mesmos 14 dias corridos no fuso America/Sao_Paulo, incluindo dias sem contagem como zero e hoje ainda em andamento. O desvio é populacional: `sqrt(soma((contagemDoDia - media)^2) / 14)`, não o erro padrão da média.
@@ -55,6 +57,12 @@ Peças recebidas por MQTT ou simulação também são conferidas contra o catál
 | POST | `/dispositivo/comando` | logado | `{ligado}` ou `{tara: true}` |
 | GET | `/config` | logado | regras da empresa |
 | PUT | `/config` | dono | altera `limiteBaixo` e a tabela de peso |
+| GET | `/simulador` | dono | estado da simulação de contagem da empresa |
+| PUT | `/simulador` | dono | `{ativo:true, deviceId}` inicia; `{ativo:false}` para |
+
+O simulador do site exige `ALLOW_SIMULATION=true` para iniciar. A resposta é `{disponivel, ativo, deviceId, contados, erro}`. Há uma simulação por empresa e processo do backend. Iniciar novamente na mesma máquina é idempotente; trocar de máquina exige desligar antes. A máquina deve pertencer à empresa da sessão. O servidor registra uma peça por segundo, seguindo o catálogo/tabela de peso da empresa, com cerca de 10% de rejeições. Os eventos entram no histórico e no estoque normalmente e disparam Socket.IO e o alerta MQTT; o simulador não publica um status fictício da máquina nem altera seu estado físico. Não precisa do token da máquina no navegador.
+
+A simulação continua ao sair da página e para ao desligar, reiniciar o servidor ou encontrar uma falha. Desligar aguarda uma gravação já em andamento antes de responder. `contados` inclui válidas e rejeitadas da sessão atual. Em implantações com mais de um processo, o controle precisa de coordenação compartilhada antes de ser habilitado.
 
 ## Equipe (só o dono)
 
@@ -70,6 +78,8 @@ Peças recebidas por MQTT ou simulação também são conferidas contra o catál
 ## WebSocket
 
 Conecta com `io(url, { auth: { token } })`. Eventos: `estoque:atualizado`, `alerta:estoque-baixo`, `evento:novo`, `dispositivo:status`, `dispositivo:telemetria` e `pedido:atualizado`.
+
+`alerta:estoque-baixo` inclui `{bitolas, tipos, limite}`, com `tipos` no mesmo formato de `tiposBaixos` do estoque.
 
 ## MQTT
 

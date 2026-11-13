@@ -115,7 +115,7 @@ export default function DashboardScreen({ navigation }) {
           <View style={styles.alerta}>
             <Text style={styles.alertaTexto}>
               <Text style={{ fontWeight: '700', color: colors.alerta }}>Estoque baixo: </Text>
-              {estoque.bitolasBaixas.join(', ')} abaixo de {fmt(estoque.limiteBaixo)} peças.
+              {(estoque.tiposBaixos ?? []).map((i) => `${i.bitola} ${i.comprimentoMm} mm (${fmt(i.quantidade)})`).join(', ')} abaixo de {fmt(estoque.limiteBaixo)} peças.
             </Text>
           </View>
         )}
